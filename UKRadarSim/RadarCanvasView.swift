@@ -176,7 +176,7 @@ struct GatwickStyleLabel: View {
                 .foregroundColor(.white)
 
             (
-                Text("F\(formatLevel(aircraft.currentLevel)) ")
+                Text("F\(formatLevel(displayLevel)) ")
                     .foregroundColor(.white)
                 +
                 Text("\(aircraft.trend.symbol) ")
@@ -187,7 +187,7 @@ struct GatwickStyleLabel: View {
             )
             .font(.system(size: 13, weight: .medium, design: .monospaced))
 
-            Text("G\(aircraft.groundSpeed) \(aircraft.destination)")
+            Text("G\(displaySpeed) \(aircraft.destination)")
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundColor(.white)
         }
@@ -201,5 +201,19 @@ struct GatwickStyleLabel: View {
 
     private func formatSelectedLevel(_ level: Int) -> String {
         String(format: "%03d", level)
+    }
+
+    private var displayLevel: Int {
+        guard aircraft.trend != .level else { return aircraft.currentLevel }
+        return roundedToNearestFive(aircraft.currentLevel)
+    }
+
+    private var displaySpeed: Int {
+        guard aircraft.trend != .level else { return aircraft.groundSpeed }
+        return roundedToNearestFive(aircraft.groundSpeed)
+    }
+
+    private func roundedToNearestFive(_ value: Int) -> Int {
+        max(0, Int((Double(value) / 5.0).rounded() * 5.0))
     }
 }
