@@ -66,8 +66,8 @@ struct MainRadarView: View {
                     StripBayColumn(
                         bay: bay,
                         strips: $sim.strips,
-                        sendInstruction: { stripID in
-                            sim.sendInstruction(stripID: stripID)
+                        sendInstruction: { stripID, changedFields in
+                            sim.sendInstruction(stripID: stripID, changedFields: changedFields)
                         },
                         clearForApproach: { stripID in
                             sim.clearForApproach(stripID: stripID)

@@ -31,10 +31,14 @@ final class VoiceReadbackService {
         synthesizer.speak(utterance)
     }
 
-    func buildIssuedInstruction(for strip: EFPSStrip) -> [String] {
+    func buildIssuedInstruction(for strip: EFPSStrip, changedFields: Set<InstructionChange> = []) -> [String] {
         var segments: [String] = []
+        let useExplicitChanges = !changedFields.isEmpty
 
-        if strip.lastIssuedLevel != strip.selectedLevel {
+        let includeLevel = useExplicitChanges
+            ? changedFields.contains(.level)
+            : strip.lastIssuedLevel != strip.selectedLevel
+        if includeLevel && strip.lastIssuedLevel != strip.selectedLevel {
             let selected = strip.selectedLevel
             let current = strip.currentLevel
             let levelValue: String = selected < 70
@@ -50,15 +54,24 @@ final class VoiceReadbackService {
             }
         }
 
-        if strip.lastIssuedHeading != strip.selectedHeading {
+        let includeHeading = useExplicitChanges
+            ? changedFields.contains(.heading)
+            : strip.lastIssuedHeading != strip.selectedHeading
+        if includeHeading && strip.lastIssuedHeading != strip.selectedHeading {
             segments.append("turn left heading \(digitWise(strip.selectedHeading, width: 3))")
         }
 
-        if strip.lastIssuedSpeed != strip.selectedSpeed {
+        let includeSpeed = useExplicitChanges
+            ? changedFields.contains(.speed)
+            : strip.lastIssuedSpeed != strip.selectedSpeed
+        if includeSpeed && strip.lastIssuedSpeed != strip.selectedSpeed {
             segments.append("reduce speed \(digitWise(strip.selectedSpeed)) knots")
         }
 
-        if strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased() {
+        let includeApproach = useExplicitChanges
+            ? changedFields.contains(.approachType)
+            : strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased()
+        if includeApproach && strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased() {
             segments.append(approachSegment(for: strip.approachType))
         }
 
