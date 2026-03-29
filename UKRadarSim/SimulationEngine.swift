@@ -12,24 +12,20 @@ enum InstructionChange: Hashable {
 class SimulationEngine: ObservableObject {
     @Published var aircraft: [Aircraft] = []
     @Published var strips: [EFPSStrip] = []
+    @Published private(set) var isPaused = false
 
-    private var movementTimer: Timer?
-    private var radarTimer: Timer?
+    private let truthUpdateInterval: CGFloat = 0.1
+    private let radarUpdateInterval: CGFloat = 6.0
+    private var elapsedSinceRadarUpdate: CGFloat = 0
     private let approachCourseHeading: Double = 34.5
     private let centerlineStart = CGPoint(x: 180, y: 576)
     private let runwayThreshold = CGPoint(x: 790, y: 232)
     private var verticalProgressByAircraft: [UUID: Double] = [:]
     private let startupScenario: SimulationScenario
 
-    init(startupScenario: SimulationScenario = ScenarioLibrary.default) {
-        self.startupScenario = startupScenario
-        loadStartupTraffic()
-        start()
-    }
-
-    deinit {
-        movementTimer?.invalidate()
-        radarTimer?.invalidate()
+    init(geometry: RadarGeometry = .default) {
+        self.geometry = geometry
+        setupTestAircraft()
     }
 
     private func loadStartupTraffic() {
@@ -59,30 +55,38 @@ class SimulationEngine: ObservableObject {
         }
     }
 
-    private func start() {
-        movementTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            self?.updateAircraftTruth()
-        }
+    func step(dt: CGFloat) {
+        guard dt > 0 else { return }
+        var remainingStep = dt
 
-        radarTimer = Timer.scheduledTimer(withTimeInterval: 6.0, repeats: true) { [weak self] _ in
-            self?.updateRadarDisplayedPositions()
+        while remainingStep > 0 {
+            let truthDelta = min(truthUpdateInterval, remainingStep)
+            updateAircraftTruth(dt: truthDelta)
+            elapsedSinceRadarUpdate += truthDelta
+
+            while elapsedSinceRadarUpdate >= radarUpdateInterval {
+                updateRadarDisplayedPositions()
+                elapsedSinceRadarUpdate -= radarUpdateInterval
+            }
+
+            remainingStep -= truthDelta
         }
+        isPaused = false
     }
 
-    private func updateAircraftTruth() {
-        let dt: CGFloat = 0.1
+    private func updateAircraftTruth(dt: CGFloat) {
 
         for i in aircraft.indices {
             if aircraft[i].isLanded { continue }
             applyControllerTargetsIfNeeded(index: i, dt: dt)
-            let headingRad = CGFloat(aircraft[i].heading * .pi / 180.0)
-
-            // Temporary pixels-per-knot scale for prototype
-            let speedScale: CGFloat = 0.02
-            let distance = CGFloat(aircraft[i].groundSpeed) * speedScale * dt
-
-            aircraft[i].trueX += cos(headingRad) * distance
-            aircraft[i].trueY -= sin(headingRad) * distance
+            let updatedPosition = MotionProjection.project(
+                from: CGPoint(x: aircraft[i].trueX, y: aircraft[i].trueY),
+                headingDegrees: aircraft[i].heading,
+                groundSpeed: aircraft[i].groundSpeed,
+                elapsedSeconds: dt
+            )
+            aircraft[i].trueX = updatedPosition.x
+            aircraft[i].trueY = updatedPosition.y
 
             applyApproachAutomationIfNeeded(index: i, dt: dt)
             wrapAircraftIfNeeded(index: i)
@@ -102,20 +106,21 @@ class SimulationEngine: ObservableObject {
 
     private func wrapAircraftIfNeeded(index: Int) {
         var didWrap = false
-        if aircraft[index].trueX > 1100 {
-            aircraft[index].trueX = -100
+        let wrapBounds = geometry.wrapBounds
+        if aircraft[index].trueX > wrapBounds.maxX {
+            aircraft[index].trueX = wrapBounds.minX
             didWrap = true
         }
-        if aircraft[index].trueX < -100 {
-            aircraft[index].trueX = 1100
+        if aircraft[index].trueX < wrapBounds.minX {
+            aircraft[index].trueX = wrapBounds.maxX
             didWrap = true
         }
-        if aircraft[index].trueY > 900 {
-            aircraft[index].trueY = -100
+        if aircraft[index].trueY > wrapBounds.maxY {
+            aircraft[index].trueY = wrapBounds.minY
             didWrap = true
         }
-        if aircraft[index].trueY < -100 {
-            aircraft[index].trueY = 900
+        if aircraft[index].trueY < wrapBounds.minY {
+            aircraft[index].trueY = wrapBounds.maxY
             didWrap = true
         }
 
@@ -152,15 +157,15 @@ class SimulationEngine: ObservableObject {
         aircraft[index].heading = moveAngle(
             aircraft[index].heading,
             toward: headingTarget,
-            maxDelta: Double(dt) * 3.0
+            maxDelta: Double(dt) * config.headingTurnRateDegreesPerSecond
         )
 
         let speedTarget = strips[stripIndex].selectedSpeed
         if aircraft[index].groundSpeed < speedTarget {
-            let increase = max(1, Int((Double(dt) * 8.0).rounded()))
+            let increase = max(1, Int((Double(dt) * config.accelerationRateKnotsPerSecond).rounded()))
             aircraft[index].groundSpeed = min(speedTarget, aircraft[index].groundSpeed + increase)
         } else if aircraft[index].groundSpeed > speedTarget {
-            let decrease = max(1, Int((Double(dt) * 10.0).rounded()))
+            let decrease = max(1, Int((Double(dt) * config.decelerationRateKnotsPerSecond).rounded()))
             aircraft[index].groundSpeed = max(speedTarget, aircraft[index].groundSpeed - decrease)
         }
 
@@ -168,8 +173,7 @@ class SimulationEngine: ObservableObject {
         if aircraft[index].currentLevel != levelTarget {
             let direction = levelTarget > aircraft[index].currentLevel ? 1 : -1
             let progressKey = aircraftID
-            let verticalRateFLPerSecond = 0.2
-            verticalProgressByAircraft[progressKey, default: 0] += verticalRateFLPerSecond * Double(dt)
+            verticalProgressByAircraft[progressKey, default: 0] += config.climbDescentRateFLPerSecond * Double(dt)
 
             while verticalProgressByAircraft[progressKey, default: 0] >= 1.0,
                   aircraft[index].currentLevel != levelTarget {
@@ -226,25 +230,17 @@ class SimulationEngine: ObservableObject {
         guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
             return
         }
-        guard let aircraftIndex = aircraft.firstIndex(where: { $0.id == strips[stripIndex].aircraftID }) else {
-            return
-        }
 
         strips[stripIndex].approachType = "ILS"
         strips[stripIndex].approachCleared = true
-        aircraft[aircraftIndex].autoLandingActive = true
     }
 
     func clearForApproach(stripID: UUID) {
         guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
             return
         }
-        guard let aircraftIndex = aircraft.firstIndex(where: { $0.id == strips[stripIndex].aircraftID }) else {
-            return
-        }
 
         strips[stripIndex].approachCleared = true
-        aircraft[aircraftIndex].autoLandingActive = true
         let strip = strips[stripIndex]
         let instruction = "\(strip.callsign) | CLEARED \(strip.approachType) APPROACH"
         strips[stripIndex].instructionLog.insert(instruction, at: 0)
@@ -252,6 +248,8 @@ class SimulationEngine: ObservableObject {
 
     private func applyApproachAutomationIfNeeded(index: Int, dt: CGFloat) {
         let aircraftID = aircraft[index].id
+        // Approach automation is intentionally gated by strip clearance state.
+        // Capture state then controls whether full localizer/glideslope tracking is active.
         guard aircraft[index].isInbound,
               let stripIndex = strips.firstIndex(where: { $0.aircraftID == aircraftID }),
               strips[stripIndex].approachCleared
@@ -260,10 +258,12 @@ class SimulationEngine: ObservableObject {
         }
 
         let position = CGPoint(x: aircraft[index].trueX, y: aircraft[index].trueY)
-        let distanceToLocalizer = distanceFromPoint(position, toSegmentFrom: centerlineStart, to: runwayThreshold)
-        let headingError = angularDifference(aircraft[index].heading, approachCourseHeading)
+        let distanceToLocalizer = distanceFromPoint(position, toSegmentFrom: geometry.centerlineStart, to: geometry.runwayThreshold)
+        let headingError = angularDifference(aircraft[index].heading, geometry.approachCourseHeading)
 
-        if !aircraft[index].approachCaptured, distanceToLocalizer < 24, headingError < 35 {
+        if !aircraft[index].approachCaptured,
+           distanceToLocalizer < config.localizerCapture.maxDistancePixels,
+           headingError < config.localizerCapture.maxHeadingErrorDegrees {
             aircraft[index].approachCaptured = true
             strips[stripIndex].instructionLog.insert("\(aircraft[index].callsign) | LOC CAPTURED", at: 0)
         }
@@ -272,20 +272,26 @@ class SimulationEngine: ObservableObject {
             return
         }
 
-        let newHeading = moveAngle(aircraft[index].heading, toward: approachCourseHeading, maxDelta: Double(dt) * 8)
+        let newHeading = moveAngle(aircraft[index].heading, toward: geometry.approachCourseHeading, maxDelta: Double(dt) * 8)
         aircraft[index].heading = newHeading
 
-        if aircraft[index].groundSpeed > 145 {
-            aircraft[index].groundSpeed = max(145, aircraft[index].groundSpeed - 1)
+        if aircraft[index].groundSpeed > config.approachTargetGroundSpeedKnots {
+            aircraft[index].groundSpeed = max(
+                config.approachTargetGroundSpeedKnots,
+                aircraft[index].groundSpeed - config.approachDecelerationKnotsPerTick
+            )
         }
 
         if aircraft[index].currentLevel > 0 {
-            aircraft[index].currentLevel = max(0, aircraft[index].currentLevel - 1)
+            aircraft[index].currentLevel = max(0, aircraft[index].currentLevel - config.approachDescentFLPerTick)
             aircraft[index].trend = aircraft[index].currentLevel == 0 ? .level : .descend
         }
 
+        let runwayThreshold = geometry.runwayThreshold
         let distanceToThreshold = hypot(position.x - runwayThreshold.x, position.y - runwayThreshold.y)
-        if distanceToThreshold < 26, aircraft[index].currentLevel == 0, aircraft[index].groundSpeed <= 150 {
+        if distanceToThreshold < config.landing.maxDistanceToThresholdPixels,
+           aircraft[index].currentLevel == 0,
+           aircraft[index].groundSpeed <= config.landing.maxTouchdownSpeedKnots {
             aircraft[index].isLanded = true
             aircraft[index].groundSpeed = 0
             aircraft[index].trend = .level
@@ -310,18 +316,5 @@ class SimulationEngine: ObservableObject {
         if adjusted < 0 { adjusted += 360 }
         if adjusted >= 360 { adjusted -= 360 }
         return adjusted
-    }
-
-    private func distanceFromPoint(_ point: CGPoint, toSegmentFrom start: CGPoint, to end: CGPoint) -> CGFloat {
-        let dx = end.x - start.x
-        let dy = end.y - start.y
-        let lengthSquared = dx * dx + dy * dy
-        guard lengthSquared > 0 else {
-            return hypot(point.x - start.x, point.y - start.y)
-        }
-
-        let t = max(0, min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
-        let projection = CGPoint(x: start.x + t * dx, y: start.y + t * dy)
-        return hypot(point.x - projection.x, point.y - projection.y)
     }
 }

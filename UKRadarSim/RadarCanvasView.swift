@@ -3,14 +3,15 @@ import SwiftUI
 struct RadarCanvasView: View {
     let aircraft: [Aircraft]
     let vectorSetting: VectorSetting
+    let geometry: RadarGeometry
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 radarBackground
                 radarMap(in: geo.size)
-                vectorLayer
-                aircraftLayer
+                vectorLayer(in: geo.size)
+                aircraftLayer(in: geo.size)
             }
             .clipped()
         }
@@ -45,42 +46,39 @@ struct RadarCanvasView: View {
                 )
             }
 
-            // Simple Gatwick-style final approach centreline
             var centerline = Path()
-            centerline.move(to: CGPoint(x: w * 0.18, y: h * 0.72))
-            centerline.addLine(to: CGPoint(x: w * 0.82, y: h * 0.28))
+            centerline.move(to: geometry.point(inViewFromWorld: geometry.centerlineStart, viewSize: size))
+            centerline.addLine(to: geometry.point(inViewFromWorld: geometry.runwayThreshold, viewSize: size))
             context.stroke(centerline, with: .color(.white.opacity(0.75)), lineWidth: 1.2)
 
-            // Small runway marker near the end of the centreline
             var runway = Path()
-            runway.move(to: CGPoint(x: w * 0.74, y: h * 0.34))
-            runway.addLine(to: CGPoint(x: w * 0.79, y: h * 0.29))
+            runway.move(to: geometry.point(inViewFromFraction: CGPoint(x: 0.74, y: 0.34), viewSize: size))
+            runway.addLine(to: geometry.point(inViewFromFraction: CGPoint(x: 0.79, y: 0.29), viewSize: size))
             context.stroke(runway, with: .color(.white.opacity(0.95)), lineWidth: 2)
 
-            // Tick marks on final
             let tickPoints: [CGPoint] = [
-                CGPoint(x: w * 0.30, y: h * 0.62),
-                CGPoint(x: w * 0.42, y: h * 0.54),
-                CGPoint(x: w * 0.54, y: h * 0.46),
-                CGPoint(x: w * 0.66, y: h * 0.38)
+                CGPoint(x: 0.30, y: 0.62),
+                CGPoint(x: 0.42, y: 0.54),
+                CGPoint(x: 0.54, y: 0.46),
+                CGPoint(x: 0.66, y: 0.38)
             ]
 
             for point in tickPoints {
+                let viewPoint = geometry.point(inViewFromFraction: point, viewSize: size)
                 var tick = Path()
-                tick.move(to: CGPoint(x: point.x - 6, y: point.y + 6))
-                tick.addLine(to: CGPoint(x: point.x + 6, y: point.y - 6))
+                tick.move(to: CGPoint(x: viewPoint.x - 6, y: viewPoint.y + 6))
+                tick.addLine(to: CGPoint(x: viewPoint.x + 6, y: viewPoint.y - 6))
                 context.stroke(tick, with: .color(.white.opacity(0.45)), lineWidth: 1)
             }
 
-            // Example dashed controlled airspace polygon
             var cas = Path()
-            cas.move(to: CGPoint(x: w * 0.15, y: h * 0.78))
-            cas.addLine(to: CGPoint(x: w * 0.28, y: h * 0.18))
-            cas.addLine(to: CGPoint(x: w * 0.72, y: h * 0.12))
-            cas.addLine(to: CGPoint(x: w * 0.88, y: h * 0.48))
-            cas.addLine(to: CGPoint(x: w * 0.70, y: h * 0.86))
-            cas.addLine(to: CGPoint(x: w * 0.22, y: h * 0.88))
-            cas.closeSubpath()
+            if let firstPoint = geometry.controlledAirspacePolygonFractions.first {
+                cas.move(to: geometry.point(inViewFromFraction: firstPoint, viewSize: size))
+                for point in geometry.controlledAirspacePolygonFractions.dropFirst() {
+                    cas.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                }
+                cas.closeSubpath()
+            }
 
             context.stroke(
                 cas,
@@ -90,67 +88,73 @@ struct RadarCanvasView: View {
         }
     }
 
-    private var vectorLayer: some View {
+    private func vectorLayer(in size: CGSize) -> some View {
         Canvas { context, _ in
             guard vectorSetting != .off else { return }
 
             for item in aircraft {
-                let endpoint = vectorEndpoint(for: item, lookaheadSeconds: vectorSetting.lookaheadSeconds)
+                let worldStart = CGPoint(x: item.displayX, y: item.displayY)
+                let worldEnd = vectorEndpoint(for: item, lookaheadSeconds: vectorSetting.lookaheadSeconds)
+
                 var path = Path()
-                path.move(to: CGPoint(x: item.displayX, y: item.displayY))
-                path.addLine(to: endpoint)
+                path.move(to: geometry.point(inViewFromWorld: worldStart, viewSize: size))
+                path.addLine(to: geometry.point(inViewFromWorld: worldEnd, viewSize: size))
                 context.stroke(path, with: .color(Color.cyan.opacity(0.55)), lineWidth: 1)
             }
         }
         .allowsHitTesting(false)
     }
 
-    private var aircraftLayer: some View {
+    private func aircraftLayer(in size: CGSize) -> some View {
         ForEach(aircraft) { aircraft in
-            AircraftTrackView(aircraft: aircraft)
+            AircraftTrackView(
+                aircraft: aircraft,
+                displayPoint: geometry.point(
+                    inViewFromWorld: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
+                    viewSize: size
+                ),
+                historyPoints: aircraft.historyDots.map { geometry.point(inViewFromWorld: $0, viewSize: size) }
+            )
         }
     }
 
     private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
-        let headingRad = CGFloat(aircraft.heading * .pi / 180.0)
-        let speedScale: CGFloat = 0.02
-        let distance = CGFloat(Double(aircraft.groundSpeed) * lookaheadSeconds) * speedScale
-
-        return CGPoint(
-            x: aircraft.displayX + cos(headingRad) * distance,
-            y: aircraft.displayY - sin(headingRad) * distance
+        MotionProjection.project(
+            from: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
+            headingDegrees: aircraft.heading,
+            groundSpeed: aircraft.groundSpeed,
+            elapsedSeconds: CGFloat(lookaheadSeconds)
         )
     }
 }
 
 struct AircraftTrackView: View {
     let aircraft: Aircraft
+    let displayPoint: CGPoint
+    let historyPoints: [CGPoint]
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(Array(aircraft.historyDots.enumerated()), id: \.offset) { index, point in
+            ForEach(Array(historyPoints.enumerated()), id: \.offset) { index, point in
                 Circle()
                     .fill(Color.white.opacity(dotOpacity(for: index)))
                     .frame(width: 4, height: 4)
                     .position(x: point.x, y: point.y)
             }
 
-            // Aircraft symbol
             Circle()
                 .fill(Color.white)
                 .frame(width: 6, height: 6)
-                .position(x: aircraft.displayX, y: aircraft.displayY)
+                .position(x: displayPoint.x, y: displayPoint.y)
 
-            // Leader line
             Path { path in
-                path.move(to: CGPoint(x: aircraft.displayX + 4, y: aircraft.displayY - 4))
-                path.addLine(to: CGPoint(x: aircraft.displayX + 26, y: aircraft.displayY - 22))
+                path.move(to: CGPoint(x: displayPoint.x + 4, y: displayPoint.y - 4))
+                path.addLine(to: CGPoint(x: displayPoint.x + 26, y: displayPoint.y - 22))
             }
             .stroke(Color.white.opacity(0.85), lineWidth: 1)
 
-            // Label
             GatwickStyleLabel(aircraft: aircraft)
-                .position(x: aircraft.displayX + 92, y: aircraft.displayY - 42)
+                .position(x: displayPoint.x + 92, y: displayPoint.y - 42)
         }
     }
 
