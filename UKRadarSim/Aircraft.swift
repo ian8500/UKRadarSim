@@ -36,4 +36,32 @@ struct Aircraft: Identifiable {
     var trend: VerticalTrend
 
     var destination: String
+    var isInbound: Bool
+}
+
+enum StripBay: String, CaseIterable, Identifiable {
+    case inbound = "Inbound"
+    case approach = "Approach"
+    case runway = "Runway"
+    case departed = "Departed"
+
+    var id: String { rawValue }
+}
+
+struct EFPSStrip: Identifiable {
+    let id = UUID()
+    let aircraftID: UUID
+    let callsign: String
+    let destination: String
+    let isInbound: Bool
+
+    var bay: StripBay
+    var selectedLevel: Int
+    var currentLevel: Int
+    var instructionLog: [String]
+    var pendingInstruction: String = ""
+
+    var stripColorHex: String {
+        isInbound ? "#E8CF9B" : "#D2E4FF"
+    }
 }

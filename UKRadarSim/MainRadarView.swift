@@ -61,13 +61,17 @@ struct MainRadarView: View {
 
     private var stripArea: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(sim.aircraft) { item in
-                    StripCard(
-                        callsign: item.callsign,
-                        level: "F\(String(format: "%03d", item.currentLevel))",
-                        selectedLevel: String(format: "%03d", item.selectedLevel),
-                        destination: item.destination
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(StripBay.allCases) { bay in
+                    StripBayColumn(
+                        bay: bay,
+                        strips: $sim.strips,
+                        sendInstruction: { stripID in
+                            sim.sendInstruction(stripID: stripID)
+                        },
+                        flitStrip: { stripID, targetBay in
+                            sim.flitStrip(stripID: stripID, to: targetBay)
+                        }
                     )
                 }
             }
