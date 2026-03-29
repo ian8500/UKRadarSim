@@ -72,7 +72,12 @@ final class VoiceReadbackService {
             ? changedFields.contains(.speed)
             : strip.lastIssuedSpeed != strip.selectedSpeed
         if includeSpeed && strip.lastIssuedSpeed != strip.selectedSpeed {
-            let speedVerb = strip.selectedSpeed < strip.lastIssuedSpeed ? "reduce" : "increase"
+            let speedVerb: String
+            if let lastIssuedSpeed = strip.lastIssuedSpeed {
+                speedVerb = strip.selectedSpeed < lastIssuedSpeed ? "reduce" : "increase"
+            } else {
+                speedVerb = "maintain"
+            }
             segments.append("\(speedVerb) speed \(digitWise(strip.selectedSpeed)) knots")
         }
 
