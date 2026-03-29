@@ -319,10 +319,12 @@ class SimulationEngine: ObservableObject {
         strips[stripIndex].lastIssuedSpeed = strip.selectedSpeed
         strips[stripIndex].lastIssuedApproachType = strip.approachType
 
-        VoiceReadbackService.shared.speakReadback(
-            phraseology: phraseology,
-            callsign: strip.callsign
-        )
+        Task { @MainActor in
+            VoiceReadbackService.shared.speakReadback(
+                phraseology: phraseology,
+                callsign: strip.callsign
+            )
+        }
     }
 
     func flitStrip(stripID: UUID, to bay: StripBay) {
@@ -461,7 +463,7 @@ class SimulationEngine: ObservableObject {
     }
 
     private func moveAngle(_ current: Double, toward target: Double, maxDelta: Double) -> Double {
-        let delta = ((current - target + 540).truncatingRemainder(dividingBy: 360)) - 180
+        let delta = ((target - current + 540).truncatingRemainder(dividingBy: 360)) - 180
         let clamped = min(max(delta, -maxDelta), maxDelta)
         var adjusted = current + clamped
 
