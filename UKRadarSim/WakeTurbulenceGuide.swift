@@ -23,19 +23,6 @@ struct WakeTurbulenceGuide {
         .init(leading: "SMALL", following: "LIGHT", minima: "4 NM")
     ]
 
-    static let departureRows: [WakeTurbulenceMinimaRow] = [
-        .init(leading: "SUPER", following: "HEAVY", minima: "2 min"),
-        .init(leading: "SUPER", following: "MEDIUM/SMALL/LIGHT", minima: "3 min"),
-        .init(leading: "HEAVY", following: "HEAVY", minima: "4 NM or time equivalent"),
-        .init(leading: "HEAVY", following: "MEDIUM/SMALL/LIGHT", minima: "2 min"),
-        .init(leading: "MEDIUM or SMALL", following: "LIGHT", minima: "2 min")
-    ]
-
-    static let oppositeDirectionRows: [WakeTurbulenceMinimaRow] = [
-        .init(leading: "SUPER (low/missed approach)", following: "LIGHT/SMALL/MEDIUM", minima: "4 min"),
-        .init(leading: "SUPER (low/missed approach)", following: "HEAVY", minima: "3 min"),
-        .init(leading: "HEAVIER aircraft (low/missed)", following: "Lighter opposite-direction traffic", minima: "3 min")
-    ]
 }
 
 struct WakeTurbulenceMinimaRow: Identifiable {
@@ -55,9 +42,7 @@ struct WakeTurbulencePopup: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            wakeSection(title: "Final approach (Table 3)", rows: WakeTurbulenceGuide.finalApproachRows)
-            wakeSection(title: "Departures (Table 4 summary)", rows: WakeTurbulenceGuide.departureRows)
-            wakeSection(title: "Opposite-direction departures", rows: WakeTurbulenceGuide.oppositeDirectionRows)
+            wakeSection(title: "Arrival minima (final approach, Table 3)", rows: WakeTurbulenceGuide.finalApproachRows)
 
             Text("No wake minima is required where CAP 493 marks the pairing with #.")
                 .font(.caption2)
