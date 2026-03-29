@@ -39,7 +39,6 @@ struct Aircraft: Identifiable {
     var destination: String
     var isInbound: Bool
     var approachCaptured: Bool = false
-    var autoLandingActive: Bool = false
     var isLanded: Bool = false
 }
 
