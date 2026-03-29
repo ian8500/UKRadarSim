@@ -112,13 +112,11 @@ struct RadarCanvasView: View {
     }
 
     private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
-        let headingRad = CGFloat(aircraft.heading * .pi / 180.0)
-        let speedScale: CGFloat = 0.02
-        let distance = CGFloat(Double(aircraft.groundSpeed) * lookaheadSeconds) * speedScale
-
-        return CGPoint(
-            x: aircraft.displayX + cos(headingRad) * distance,
-            y: aircraft.displayY - sin(headingRad) * distance
+        MotionProjection.project(
+            from: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
+            headingDegrees: aircraft.heading,
+            groundSpeed: aircraft.groundSpeed,
+            elapsedSeconds: CGFloat(lookaheadSeconds)
         )
     }
 }

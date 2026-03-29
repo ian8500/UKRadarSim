@@ -104,14 +104,14 @@ class SimulationEngine: ObservableObject {
         for i in aircraft.indices {
             if aircraft[i].isLanded { continue }
             applyControllerTargetsIfNeeded(index: i, dt: dt)
-            let headingRad = CGFloat(aircraft[i].heading * .pi / 180.0)
-
-            // Temporary pixels-per-knot scale for prototype
-            let speedScale: CGFloat = 0.02
-            let distance = CGFloat(aircraft[i].groundSpeed) * speedScale * dt
-
-            aircraft[i].trueX += cos(headingRad) * distance
-            aircraft[i].trueY -= sin(headingRad) * distance
+            let updatedPosition = MotionProjection.project(
+                from: CGPoint(x: aircraft[i].trueX, y: aircraft[i].trueY),
+                headingDegrees: aircraft[i].heading,
+                groundSpeed: aircraft[i].groundSpeed,
+                elapsedSeconds: dt
+            )
+            aircraft[i].trueX = updatedPosition.x
+            aircraft[i].trueY = updatedPosition.y
 
             applyApproachAutomationIfNeeded(index: i, dt: dt)
             wrapAircraftIfNeeded(index: i)
