@@ -76,10 +76,14 @@ final class VoiceReadbackService {
             segments.append("\(speedVerb) speed \(digitWise(strip.selectedSpeed)) knots")
         }
 
+        let selectedApproach = strip.approachType.uppercased()
+        let lastIssuedApproach = strip.lastIssuedApproachType?.uppercased() ?? ""
+        let approachChanged = lastIssuedApproach != selectedApproach
+
         let includeApproach = useExplicitChanges
             ? changedFields.contains(.approachType)
-            : strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased()
-        if includeApproach && strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased() {
+            : approachChanged
+        if includeApproach && approachChanged {
             segments.append(approachSegment(for: strip.approachType))
         }
 
