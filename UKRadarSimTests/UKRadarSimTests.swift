@@ -82,11 +82,29 @@ struct UKRadarSimTests {
         #expect(instruction == ["turn right heading zero two seven"])
     }
 
+    @Test func speedReadbackUsesIncreaseWhenSpeedGoesUp() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedHeading: 90, selectedSpeed: 250, lastIssuedSpeed: 220)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.speed])
+
+        #expect(instruction == ["increase speed two five zero knots"])
+    }
+
+    @Test func speedReadbackUsesReduceWhenSpeedGoesDown() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedHeading: 90, selectedSpeed: 180, lastIssuedSpeed: 220)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.speed])
+
+        #expect(instruction == ["reduce speed one eight zero knots"])
+    }
+
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
 
-    private func makeStrip(selectedHeading: Int) -> EFPSStrip {
+    private func makeStrip(selectedHeading: Int, selectedSpeed: Int = 220, lastIssuedSpeed: Int = 220) -> EFPSStrip {
         EFPSStrip(
             aircraftID: UUID(),
             callsign: "EZY123",
@@ -98,13 +116,13 @@ struct UKRadarSimTests {
             currentLevel: 100,
             selectedHeading: selectedHeading,
             currentHeading: 0,
-            selectedSpeed: 220,
+            selectedSpeed: selectedSpeed,
             approachType: "ILS",
             approachCleared: false,
             instructionLog: [],
             lastIssuedLevel: 100,
             lastIssuedHeading: 0,
-            lastIssuedSpeed: 220,
+            lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
         )
     }
