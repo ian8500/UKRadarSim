@@ -38,6 +38,8 @@ struct MainRadarView: View {
             RadarCanvasView(
                 aircraft: sim.aircraft,
                 vectorSetting: appState.vectorSetting,
+                showsControlledAirspaceBase: appState.showsControlledAirspaceBase,
+                showsTerrainMap: appState.showsTerrainMap,
                 geometry: geometry
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -56,7 +58,7 @@ struct MainRadarView: View {
                 .buttonStyle(.bordered)
                 .tint(.white)
 
-            ToolbarButton(title: "Layers")
+            layerControls
             vectorsMenu
             wakeButton
             speedMenu
@@ -106,6 +108,36 @@ struct MainRadarView: View {
         }, perform: {})
         .popover(isPresented: $showWakeGuide, attachmentAnchor: .point(.bottom), arrowEdge: .top) {
             WakeTurbulencePopup()
+        }
+    }
+
+    private var layerControls: some View {
+        HStack(spacing: 8) {
+            layerToggleButton(
+                title: "CAS Base",
+                isOn: appState.showsControlledAirspaceBase
+            ) {
+                appState.showsControlledAirspaceBase.toggle()
+            }
+
+            layerToggleButton(
+                title: "Terrain",
+                isOn: appState.showsTerrainMap
+            ) {
+                appState.showsTerrainMap.toggle()
+            }
+        }
+    }
+
+    private func layerToggleButton(title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background((isOn ? Color.blue : Color.gray).opacity(0.35))
+                .cornerRadius(8)
         }
     }
 
