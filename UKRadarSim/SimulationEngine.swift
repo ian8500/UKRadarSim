@@ -319,10 +319,12 @@ class SimulationEngine: ObservableObject {
         strips[stripIndex].lastIssuedSpeed = strip.selectedSpeed
         strips[stripIndex].lastIssuedApproachType = strip.approachType
 
-        VoiceReadbackService.shared.speakReadback(
-            phraseology: phraseology,
-            callsign: strip.callsign
-        )
+        Task { @MainActor in
+            VoiceReadbackService.shared.speakReadback(
+                phraseology: phraseology,
+                callsign: strip.callsign
+            )
+        }
     }
 
     func flitStrip(stripID: UUID, to bay: StripBay) {

@@ -32,7 +32,7 @@ final class VoiceReadbackService {
         synthesizer.speak(utterance)
     }
 
-    func buildIssuedInstruction(for strip: EFPSStrip, changedFields: Set<InstructionChange> = []) -> [String] {
+    nonisolated func buildIssuedInstruction(for strip: EFPSStrip, changedFields: Set<InstructionChange> = []) -> [String] {
         var segments: [String] = []
         let useExplicitChanges = !changedFields.isEmpty
 
@@ -95,7 +95,7 @@ final class VoiceReadbackService {
         return segments
     }
 
-    func buildCAAReadback(for strip: EFPSStrip, instruction: [String]) -> String {
+    nonisolated func buildCAAReadback(for strip: EFPSStrip, instruction: [String]) -> String {
         let callsign = spokenCallsign(from: strip.callsign)
         let instructionText = instruction.joined(separator: ", ")
         return "\(instructionText), \(callsign)."
