@@ -345,17 +345,4 @@ class SimulationEngine: ObservableObject {
         if adjusted >= 360 { adjusted -= 360 }
         return adjusted
     }
-
-    private func distanceFromPoint(_ point: CGPoint, toSegmentFrom start: CGPoint, to end: CGPoint) -> CGFloat {
-        let dx = end.x - start.x
-        let dy = end.y - start.y
-        let lengthSquared = dx * dx + dy * dy
-        guard lengthSquared > 0 else {
-            return hypot(point.x - start.x, point.y - start.y)
-        }
-
-        let t = max(0, min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
-        let projection = CGPoint(x: start.x + t * dx, y: start.y + t * dy)
-        return hypot(point.x - projection.x, point.y - projection.y)
-    }
 }
