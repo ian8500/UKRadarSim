@@ -5,6 +5,7 @@ struct MainRadarView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var sim: SimulationEngine
     @StateObject private var clock: SimulationClock
+    @State private var selectedBayFilter: StripBay?
 
     let selectedAirport: AirportConfig
     let difficulty: DifficultyLevel
@@ -29,6 +30,7 @@ struct MainRadarView: View {
         _sim = StateObject(wrappedValue: simulationEngine)
         _clock = StateObject(wrappedValue: SimulationClock(simulationEngine: simulationEngine))
     }
+
     var body: some View {
         VStack(spacing: 0) {
             RadarCanvasView(
@@ -39,58 +41,38 @@ struct MainRadarView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             toolbar
-
             opsStatusPanel
-
             stripArea
         }
-        .onAppear {
-            clock.start()
-        }
-        .onDisappear {
-            clock.pause()
-        }
+        .onAppear { clock.start() }
+        .onDisappear { clock.pause() }
     }
 
     private var toolbar: some View {
         HStack(spacing: 16) {
-            Button("Home") {
-                onExit()
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.blue.opacity(0.25))
-            .cornerRadius(8)
+            Button("Home") { onExit() }
+                .buttonStyle(.bordered)
+                .tint(.white)
 
             ToolbarButton(title: "Layers")
             vectorsMenu
             ToolbarButton(title: "Wake")
             speedMenu
-            Button {
+
+            Button(clock.isRunning ? "Pause" : "Resume") {
                 clock.isRunning ? clock.pause() : clock.resume()
-            } label: {
-                Text(clock.isRunning ? "Pause" : "Resume")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.blue.opacity(0.25))
-                    .cornerRadius(8)
             }
+            .buttonStyle(.bordered)
+            .tint(.white)
+
             Button {
                 sim.resetScenario()
                 clock.reset()
             } label: {
-                Text("Reset")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.red.opacity(0.3))
-                    .cornerRadius(8)
+                Label("Reset", systemImage: "arrow.counterclockwise")
             }
+            .buttonStyle(.borderedProminent)
+            .tint(.red.opacity(0.7))
 
             Spacer()
 
@@ -98,7 +80,7 @@ struct MainRadarView: View {
                 Text("\(selectedAirport.icao) • \(difficulty.title)")
                     .foregroundColor(.white.opacity(0.85))
                     .font(.caption.weight(.semibold))
-                Text("Score: 0")
+                Text("Score: \(sim.score)")
                     .foregroundColor(.white)
                     .font(.headline)
             }
@@ -132,27 +114,32 @@ struct MainRadarView: View {
     }
 
     private var opsStatusPanel: some View {
-        HStack(spacing: 16) {
-            Text("Session \(formatClock(clock.elapsedSeconds))")
-                .foregroundColor(.white.opacity(0.9))
-                .font(.caption.monospacedDigit())
-
-            Text("Alerts: \(sim.activeAlerts.count)")
-                .foregroundColor(sim.activeAlerts.isEmpty ? .green : .orange)
-                .font(.caption.weight(.semibold))
-
-            if let topAlert = sim.activeAlerts.first {
-                Text("\(topAlert.callsignPair) • \(topAlert.message)")
-                    .foregroundColor(topAlert.severity == .warning ? .red : .yellow)
-                    .font(.caption)
-                    .lineLimit(1)
-            } else {
-                Text("No active conflict predictions")
-                    .foregroundColor(.green)
-                    .font(.caption)
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                StatusPill(title: "Session", value: formatClock(clock.elapsedSeconds), tint: .cyan)
+                StatusPill(title: "Score", value: "\(sim.score)", tint: .blue)
+                StatusPill(title: "Landed", value: "\(sim.landedCount)", tint: .green)
+                StatusPill(
+                    title: "Alerts",
+                    value: "\(sim.activeAlerts.count)",
+                    tint: sim.activeAlerts.isEmpty ? .green : .orange
+                )
+                Spacer()
             }
 
-            Spacer()
+            HStack(spacing: 8) {
+                if let topAlert = sim.activeAlerts.first {
+                    Label("\(topAlert.callsignPair) • \(topAlert.message)", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundColor(topAlert.severity == .warning ? .red : .yellow)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                } else {
+                    Label("No active conflict predictions", systemImage: "checkmark.shield.fill")
+                        .foregroundColor(.green)
+                        .font(.caption.weight(.semibold))
+                }
+                Spacer()
+            }
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -191,30 +178,88 @@ struct MainRadarView: View {
     }
 
     private var stripArea: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(StripBay.allCases) { bay in
-                    StripBayColumn(
-                        bay: bay,
-                        strips: $sim.strips,
-                        sendInstruction: { stripID, changedFields in
-                            sim.sendInstruction(stripID: stripID, changedFields: changedFields)
-                        },
-                        armILSIntercept: { stripID in
-                            sim.armILSIntercept(stripID: stripID)
-                        },
-                        clearForApproach: { stripID in
-                            sim.clearForApproach(stripID: stripID)
-                        },
-                        flitStrip: { stripID, targetBay in
-                            sim.flitStrip(stripID: stripID, to: targetBay)
-                        }
-                    )
+        VStack(spacing: 10) {
+            bayFilterBar
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(visibleBays) { bay in
+                        StripBayColumn(
+                            bay: bay,
+                            strips: $sim.strips,
+                            sendInstruction: { stripID, changedFields in
+                                sim.sendInstruction(stripID: stripID, changedFields: changedFields)
+                            },
+                            armILSIntercept: { stripID in
+                                sim.armILSIntercept(stripID: stripID)
+                            },
+                            clearForApproach: { stripID in
+                                sim.clearForApproach(stripID: stripID)
+                            },
+                            flitStrip: { stripID, targetBay in
+                                sim.flitStrip(stripID: stripID, to: targetBay)
+                            }
+                        )
+                    }
                 }
+                .padding(.horizontal)
+                .padding(.bottom)
             }
-            .padding()
         }
         .background(Color(red: 0.12, green: 0.14, blue: 0.16))
+    }
+
+    private var bayFilterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Button("All Bays") {
+                    selectedBayFilter = nil
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(selectedBayFilter == nil ? .blue : .gray)
+
+                ForEach(StripBay.allCases) { bay in
+                    Button(bay.rawValue) {
+                        selectedBayFilter = bay
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(selectedBayFilter == bay ? .indigo : .gray)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 10)
+        }
+    }
+
+    private var visibleBays: [StripBay] {
+        if let selectedBayFilter {
+            return [selectedBayFilter]
+        }
+        return StripBay.allCases
+    }
+}
+
+private struct StatusPill: View {
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.75))
+            Text(value)
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(tint.opacity(0.25), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(tint.opacity(0.35), lineWidth: 1)
+        }
     }
 }
 
