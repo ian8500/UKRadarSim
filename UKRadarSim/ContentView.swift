@@ -213,10 +213,17 @@ struct StripCard: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 6) {
                     ForEach(options, id: \.self) { option in
-                        Button(label(option)) {
-                            onSelect(option)
+                        if selected == option {
+                            Button(label(option)) {
+                                onSelect(option)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else {
+                            Button(label(option)) {
+                                onSelect(option)
+                            }
+                            .buttonStyle(.bordered)
                         }
-                        .buttonStyle(selected == option ? .borderedProminent : .bordered)
                     }
                 }
             }
