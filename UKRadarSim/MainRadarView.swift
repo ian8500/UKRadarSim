@@ -38,6 +38,12 @@ struct MainRadarView: View {
             RadarCanvasView(
                 aircraft: sim.aircraft,
                 vectorSetting: appState.vectorSetting,
+                predictedVectorEndpoint: { aircraft, lookaheadSeconds in
+                    sim.predictedDisplayPosition(
+                        for: aircraft.id,
+                        lookaheadSeconds: lookaheadSeconds
+                    ) ?? CGPoint(x: aircraft.displayX, y: aircraft.displayY)
+                },
                 showsControlledAirspaceBase: appState.showsControlledAirspaceBase,
                 showsTerrainMap: appState.showsTerrainMap,
                 geometry: geometry

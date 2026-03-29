@@ -8,31 +8,123 @@ struct PredictedAircraftState {
     let projectedLevel: Int
 }
 
-struct AircraftPredictor {
-    private let speedScale: CGFloat
+struct TrackIntent {
+    let selectedHeading: Double
+    let selectedSpeed: Int
+    let selectedLevel: Int
+}
 
-    init(speedScale: CGFloat = 0.02) {
-        self.speedScale = speedScale
+struct IntentAwareTrackPredictor {
+    private let headingTurnRateDegreesPerSecond: Double
+    private let accelerationRateKnotsPerSecond: Double
+    private let decelerationRateKnotsPerSecond: Double
+    private let climbDescentRateFLPerSecond: Double
+    private let integrationStepSeconds: Double
+
+    init(
+        headingTurnRateDegreesPerSecond: Double = 3.0,
+        accelerationRateKnotsPerSecond: Double = 2.0,
+        decelerationRateKnotsPerSecond: Double = 2.0,
+        climbDescentRateFLPerSecond: Double = 2.0,
+        integrationStepSeconds: Double = 0.5
+    ) {
+        self.headingTurnRateDegreesPerSecond = headingTurnRateDegreesPerSecond
+        self.accelerationRateKnotsPerSecond = accelerationRateKnotsPerSecond
+        self.decelerationRateKnotsPerSecond = decelerationRateKnotsPerSecond
+        self.climbDescentRateFLPerSecond = climbDescentRateFLPerSecond
+        self.integrationStepSeconds = integrationStepSeconds
     }
 
-    func predictedState(for aircraft: Aircraft, lookaheadSeconds: Double) -> PredictedAircraftState {
-        let headingRad = CGFloat(aircraft.heading * .pi / 180.0)
-        let distance = CGFloat(Double(aircraft.groundSpeed) * lookaheadSeconds) * speedScale
+    func predictedState(
+        for aircraft: Aircraft,
+        intent: TrackIntent,
+        lookaheadSeconds: Double,
+        startPosition: CGPoint
+    ) -> PredictedAircraftState {
+        var projectedHeading = aircraft.heading
+        var projectedSpeed = Double(aircraft.groundSpeed)
+        var projectedLevel = Double(aircraft.currentLevel)
+        var projectedPosition = startPosition
+        var elapsed: Double = 0
 
-        let projectedPosition = CGPoint(
-            x: aircraft.displayX + cos(headingRad) * distance,
-            y: aircraft.displayY - sin(headingRad) * distance
-        )
+        while elapsed < lookaheadSeconds {
+            let dt = min(integrationStepSeconds, lookaheadSeconds - elapsed)
+            projectedHeading = moveAngle(
+                projectedHeading,
+                toward: intent.selectedHeading,
+                maxDelta: dt * headingTurnRateDegreesPerSecond
+            )
+
+            if projectedSpeed < Double(intent.selectedSpeed) {
+                projectedSpeed = min(
+                    Double(intent.selectedSpeed),
+                    projectedSpeed + (dt * accelerationRateKnotsPerSecond)
+                )
+            } else if projectedSpeed > Double(intent.selectedSpeed) {
+                projectedSpeed = max(
+                    Double(intent.selectedSpeed),
+                    projectedSpeed - (dt * decelerationRateKnotsPerSecond)
+                )
+            }
+
+            let levelDirection = intent.selectedLevel > Int(projectedLevel.rounded()) ? 1.0 : -1.0
+            if Int(projectedLevel.rounded()) != intent.selectedLevel {
+                let nextLevel = projectedLevel + (levelDirection * dt * climbDescentRateFLPerSecond)
+                if levelDirection > 0 {
+                    projectedLevel = min(Double(intent.selectedLevel), nextLevel)
+                } else {
+                    projectedLevel = max(Double(intent.selectedLevel), nextLevel)
+                }
+            }
+
+            let displacement = MotionProjection.displacement(
+                headingDegrees: projectedHeading,
+                groundSpeed: Int(projectedSpeed.rounded()),
+                elapsedSeconds: CGFloat(dt)
+            )
+            projectedPosition = CGPoint(
+                x: projectedPosition.x + displacement.dx,
+                y: projectedPosition.y + displacement.dy
+            )
+
+            elapsed += dt
+        }
 
         return PredictedAircraftState(
             aircraftID: aircraft.id,
             lookaheadSeconds: lookaheadSeconds,
             projectedPosition: projectedPosition,
-            projectedLevel: aircraft.selectedLevel
+            projectedLevel: Int(projectedLevel.rounded())
         )
     }
 
-    func predictedStates(for aircraft: [Aircraft], lookaheadSeconds: Double) -> [PredictedAircraftState] {
-        aircraft.map { predictedState(for: $0, lookaheadSeconds: lookaheadSeconds) }
+    func predictedStates(
+        for aircraft: [Aircraft],
+        intentByAircraftID: [UUID: TrackIntent],
+        lookaheadSeconds: Double
+    ) -> [PredictedAircraftState] {
+        aircraft.map { item in
+            predictedState(
+                for: item,
+                intent: intentByAircraftID[item.id] ?? TrackIntent(
+                    selectedHeading: item.heading,
+                    selectedSpeed: item.groundSpeed,
+                    selectedLevel: item.currentLevel
+                ),
+                lookaheadSeconds: lookaheadSeconds,
+                startPosition: CGPoint(x: item.trueX, y: item.trueY)
+            )
+        }
+    }
+
+    private func moveAngle(_ current: Double, toward target: Double, maxDelta: Double) -> Double {
+        let delta = ((target - current + 540).truncatingRemainder(dividingBy: 360)) - 180
+        let clamped = min(max(delta, -maxDelta), maxDelta)
+        var adjusted = current + clamped
+
+        if adjusted < 0 { adjusted += 360 }
+        if adjusted >= 360 { adjusted -= 360 }
+
+        return adjusted
     }
 }

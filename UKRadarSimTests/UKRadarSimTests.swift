@@ -4,8 +4,10 @@ import Testing
 
 struct UKRadarSimTests {
 
+    private let startupScenario = ScenarioLibrary.default
+
     @Test func radarDisplayUpdatesOnlyOnRadarTick() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: startupScenario)
         #expect(!engine.aircraft.isEmpty)
 
         let baselineDisplay = CGPoint(x: engine.aircraft[0].displayX, y: engine.aircraft[0].displayY)
@@ -26,7 +28,7 @@ struct UKRadarSimTests {
     }
 
     @Test func headingTargetConvergesGradually() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: startupScenario)
         #expect(!engine.aircraft.isEmpty)
         #expect(!engine.strips.isEmpty)
 
@@ -45,7 +47,7 @@ struct UKRadarSimTests {
     }
 
     @Test func levelOffOccursWhenSelectedLevelReached() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: startupScenario)
         #expect(!engine.aircraft.isEmpty)
         #expect(!engine.strips.isEmpty)
 
@@ -100,6 +102,72 @@ struct UKRadarSimTests {
         #expect(instruction == ["reduce speed one eight zero knots"])
     }
 
+    @Test func intentAwarePredictorUsesSelectedHeading() {
+        let predictor = IntentAwareTrackPredictor()
+        let aircraft = makeAircraft(heading: 90, groundSpeed: 220, currentLevel: 120)
+        let neutralIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 220, selectedLevel: 120)
+        let turnIntent = TrackIntent(selectedHeading: 180, selectedSpeed: 220, selectedLevel: 120)
+
+        let neutralProjection = predictor.predictedState(
+            for: aircraft,
+            intent: neutralIntent,
+            lookaheadSeconds: 60,
+            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
+        )
+        let turnedProjection = predictor.predictedState(
+            for: aircraft,
+            intent: turnIntent,
+            lookaheadSeconds: 60,
+            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
+        )
+
+        #expect(abs(neutralProjection.projectedPosition.x - turnedProjection.projectedPosition.x) > 0.01)
+    }
+
+    @Test func intentAwarePredictorUsesSelectedSpeed() {
+        let predictor = IntentAwareTrackPredictor()
+        let aircraft = makeAircraft(heading: 90, groundSpeed: 220, currentLevel: 120)
+        let fastIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 260, selectedLevel: 120)
+        let slowIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 180, selectedLevel: 120)
+
+        let fastProjection = predictor.predictedState(
+            for: aircraft,
+            intent: fastIntent,
+            lookaheadSeconds: 60,
+            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
+        )
+        let slowProjection = predictor.predictedState(
+            for: aircraft,
+            intent: slowIntent,
+            lookaheadSeconds: 60,
+            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
+        )
+
+        #expect(abs(fastProjection.projectedPosition.y - slowProjection.projectedPosition.y) > 0.01)
+    }
+
+    @Test func intentAwarePredictorUsesSelectedLevel() {
+        let predictor = IntentAwareTrackPredictor()
+        let aircraft = makeAircraft(heading: 90, groundSpeed: 220, currentLevel: 120)
+        let climbIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 220, selectedLevel: 140)
+        let descentIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 220, selectedLevel: 100)
+
+        let climbProjection = predictor.predictedState(
+            for: aircraft,
+            intent: climbIntent,
+            lookaheadSeconds: 10,
+            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
+        )
+        let descentProjection = predictor.predictedState(
+            for: aircraft,
+            intent: descentIntent,
+            lookaheadSeconds: 10,
+            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
+        )
+
+        #expect(climbProjection.projectedLevel > descentProjection.projectedLevel)
+    }
+
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
@@ -124,6 +192,24 @@ struct UKRadarSimTests {
             lastIssuedHeading: 0,
             lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
+        )
+    }
+
+    private func makeAircraft(heading: Double, groundSpeed: Int, currentLevel: Int) -> Aircraft {
+        Aircraft(
+            callsign: "TEST123",
+            trueX: 500,
+            trueY: 500,
+            displayX: 500,
+            displayY: 500,
+            heading: heading,
+            groundSpeed: groundSpeed,
+            currentLevel: currentLevel,
+            selectedLevel: currentLevel,
+            trend: .level,
+            aircraftType: "A320",
+            destination: "EGKK",
+            isInbound: true
         )
     }
 }

@@ -33,30 +33,6 @@ private struct SimulationConfig {
     let landing = Landing()
 }
 
-private struct TrackPredictor {
-    func predictedPosition(for track: Aircraft, lookaheadSeconds: Double) -> CGPoint {
-        MotionProjection.project(
-            from: CGPoint(x: track.trueX, y: track.trueY),
-            headingDegrees: track.heading,
-            groundSpeed: track.groundSpeed,
-            elapsedSeconds: lookaheadSeconds
-        )
-    }
-
-    func predictedState(for track: Aircraft, lookaheadSeconds: Double) -> PredictedAircraftState {
-        PredictedAircraftState(
-            aircraftID: track.id,
-            lookaheadSeconds: lookaheadSeconds,
-            projectedPosition: predictedPosition(for: track, lookaheadSeconds: lookaheadSeconds),
-            projectedLevel: track.selectedLevel
-        )
-    }
-
-    func predictedStates(for tracks: [Aircraft], lookaheadSeconds: Double) -> [PredictedAircraftState] {
-        tracks.map { predictedState(for: $0, lookaheadSeconds: lookaheadSeconds) }
-    }
-}
-
 class SimulationEngine: ObservableObject {
     struct SafetyAlert: Identifiable {
         enum Severity {
@@ -84,7 +60,7 @@ class SimulationEngine: ObservableObject {
 
     private let geometry: RadarGeometry
     private let config = SimulationConfig()
-    private let predictor = TrackPredictor()
+    private let predictor: IntentAwareTrackPredictor
     private let startupScenario: SimulationScenario
 
     init(
@@ -93,6 +69,12 @@ class SimulationEngine: ObservableObject {
     ) {
         self.geometry = geometry
         self.startupScenario = startupScenario
+        self.predictor = IntentAwareTrackPredictor(
+            headingTurnRateDegreesPerSecond: config.headingTurnRateDegreesPerSecond,
+            accelerationRateKnotsPerSecond: config.accelerationRateKnotsPerSecond,
+            decelerationRateKnotsPerSecond: config.decelerationRateKnotsPerSecond,
+            climbDescentRateFLPerSecond: config.climbDescentRateFLPerSecond
+        )
         loadStartupTraffic()
         updateRadarDisplayedPositions()
     }
@@ -288,11 +270,37 @@ class SimulationEngine: ObservableObject {
             return nil
         }
 
-        return predictor.predictedState(for: track, lookaheadSeconds: lookaheadSeconds).projectedPosition
+        let intentLookup = intentByAircraftID()
+        let startPosition = CGPoint(x: track.trueX, y: track.trueY)
+        return predictedState(
+            for: track,
+            intentLookup: intentLookup,
+            lookaheadSeconds: lookaheadSeconds,
+            startPosition: startPosition
+        ).projectedPosition
+    }
+
+    func predictedDisplayPosition(for aircraftID: UUID, lookaheadSeconds: Double) -> CGPoint? {
+        guard let track = aircraft.first(where: { $0.id == aircraftID }) else {
+            return nil
+        }
+
+        let intentLookup = intentByAircraftID()
+        let startPosition = CGPoint(x: track.displayX, y: track.displayY)
+        return predictedState(
+            for: track,
+            intentLookup: intentLookup,
+            lookaheadSeconds: lookaheadSeconds,
+            startPosition: startPosition
+        ).projectedPosition
     }
 
     func predictedStates(lookaheadSeconds: Double) -> [PredictedAircraftState] {
-        predictor.predictedStates(for: aircraft, lookaheadSeconds: lookaheadSeconds)
+        predictor.predictedStates(
+            for: aircraft,
+            intentByAircraftID: intentByAircraftID(),
+            lookaheadSeconds: lookaheadSeconds
+        )
     }
 
     func sendInstruction(stripID: UUID, changedFields: Set<InstructionChange> = []) {
@@ -476,6 +484,7 @@ class SimulationEngine: ObservableObject {
     private func recalculateOpsState() {
         var alerts: [SafetyAlert] = []
         var computedScore = 100 + (landedCount * 5)
+        let intentLookup = intentByAircraftID()
 
         for firstIndex in aircraft.indices {
             for secondIndex in aircraft.indices where secondIndex > firstIndex {
@@ -501,8 +510,18 @@ class SimulationEngine: ObservableObject {
                     continue
                 }
 
-                let projectedFirst = predictor.predictedPosition(for: first, lookaheadSeconds: 90)
-                let projectedSecond = predictor.predictedPosition(for: second, lookaheadSeconds: 90)
+                let projectedFirst = predictedState(
+                    for: first,
+                    intentLookup: intentLookup,
+                    lookaheadSeconds: 90,
+                    startPosition: CGPoint(x: first.trueX, y: first.trueY)
+                ).projectedPosition
+                let projectedSecond = predictedState(
+                    for: second,
+                    intentLookup: intentLookup,
+                    lookaheadSeconds: 90,
+                    startPosition: CGPoint(x: second.trueX, y: second.trueY)
+                ).projectedPosition
                 let projectedDistance = hypot(projectedFirst.x - projectedSecond.x, projectedFirst.y - projectedSecond.y)
 
                 if levelDelta <= 20 && projectedDistance < 60 {
@@ -520,5 +539,37 @@ class SimulationEngine: ObservableObject {
 
         score = max(0, computedScore)
         activeAlerts = alerts
+    }
+
+    private func intentByAircraftID() -> [UUID: TrackIntent] {
+        Dictionary(uniqueKeysWithValues: strips.map { strip in
+            (
+                strip.aircraftID,
+                TrackIntent(
+                    selectedHeading: Double(strip.selectedHeading),
+                    selectedSpeed: strip.selectedSpeed,
+                    selectedLevel: strip.selectedLevel
+                )
+            )
+        })
+    }
+
+    private func predictedState(
+        for track: Aircraft,
+        intentLookup: [UUID: TrackIntent],
+        lookaheadSeconds: Double,
+        startPosition: CGPoint
+    ) -> PredictedAircraftState {
+        let intent = intentLookup[track.id] ?? TrackIntent(
+            selectedHeading: track.heading,
+            selectedSpeed: track.groundSpeed,
+            selectedLevel: track.currentLevel
+        )
+        return predictor.predictedState(
+            for: track,
+            intent: intent,
+            lookaheadSeconds: lookaheadSeconds,
+            startPosition: startPosition
+        )
     }
 }
