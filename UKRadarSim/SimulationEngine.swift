@@ -12,6 +12,7 @@ enum InstructionChange: Hashable {
 class SimulationEngine: ObservableObject {
     @Published var aircraft: [Aircraft] = []
     @Published var strips: [EFPSStrip] = []
+    @Published private(set) var isPaused = false
 
     private var movementTimer: Timer?
     private var radarTimer: Timer?
@@ -22,7 +23,7 @@ class SimulationEngine: ObservableObject {
 
     init() {
         setupTestAircraft()
-        start()
+        resume()
     }
 
     deinit {
@@ -86,7 +87,25 @@ class SimulationEngine: ObservableObject {
         }
     }
 
-    private func start() {
+    func togglePause() {
+        isPaused ? resume() : pause()
+    }
+
+    func pause() {
+        guard !isPaused else { return }
+        movementTimer?.invalidate()
+        radarTimer?.invalidate()
+        movementTimer = nil
+        radarTimer = nil
+        isPaused = true
+    }
+
+    func resume() {
+        guard movementTimer == nil, radarTimer == nil else {
+            isPaused = false
+            return
+        }
+
         movementTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.updateAircraftTruth()
         }
@@ -94,6 +113,7 @@ class SimulationEngine: ObservableObject {
         radarTimer = Timer.scheduledTimer(withTimeInterval: 6.0, repeats: true) { [weak self] _ in
             self?.updateRadarDisplayedPositions()
         }
+        isPaused = false
     }
 
     private func updateAircraftTruth() {

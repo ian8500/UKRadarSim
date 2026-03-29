@@ -23,7 +23,9 @@ struct MainRadarView: View {
             ToolbarButton(title: "Layers")
             vectorsMenu
             ToolbarButton(title: "Wake")
-            ToolbarButton(title: "Pause")
+            ToolbarButton(title: sim.isPaused ? "Resume" : "Pause") {
+                sim.togglePause()
+            }
 
             Spacer()
 

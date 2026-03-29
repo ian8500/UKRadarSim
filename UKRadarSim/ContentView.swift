@@ -8,9 +8,10 @@ struct ContentView: View {
 
 struct ToolbarButton: View {
     let title: String
+    var action: () -> Void = {}
 
     var body: some View {
-        Button(action: {}) {
+        Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.white)
