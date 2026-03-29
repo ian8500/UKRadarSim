@@ -100,78 +100,125 @@ struct UKRadarSimTests {
         #expect(instruction == ["reduce speed one eight zero knots"])
     }
 
-    @Test func simulationClockAppliesSpeedMultiplierToElapsedDelta() {
-        let stepper = MockSimulationStepper()
-        var now = 100.0
-        let clock = SimulationClock(
-            simulationStepper: stepper,
-            tickInterval: 0.1,
-            maximumFrameDelta: 5.0,
-            nowProvider: { now }
-        )
-        clock.speedMultiplier = 2.0
+    @Test func aircraftMotionServiceMovesHeadingTowardTarget() {
+        let service = AircraftMotionService()
+        var aircraft = makeAircraft(heading: 10, groundSpeed: 220, currentLevel: 80, selectedLevel: 80)
+        let strip = makeStrip(selectedHeading: 100, selectedSpeed: 220, selectedLevel: 80)
+        var verticalProgress = 0.0
 
-        clock.start()
-        now = 100.5
-        clock.advanceFrame(to: now)
+        service.applyControllerTargets(to: &aircraft, strip: strip, dt: 1.0, verticalProgress: &verticalProgress)
 
-        #expect(stepper.receivedDeltas.count == 1)
-        #expect(stepper.receivedDeltas[0] == 1.0)
-        #expect(clock.elapsedSeconds == 1.0)
+        #expect(aircraft.heading == 13)
     }
 
-    @Test func simulationClockPauseAndResumeDoesNotAccumulatePausedTime() {
-        let stepper = MockSimulationStepper()
-        var now = 0.0
-        let clock = SimulationClock(
-            simulationStepper: stepper,
-            tickInterval: 0.1,
-            maximumFrameDelta: 5.0,
-            nowProvider: { now }
+    @Test func approachAutomationServiceCapturesAndLands() {
+        let service = ApproachAutomationService()
+        let geometry = RadarGeometry.default
+        var aircraft = makeAircraft(
+            trueX: geometry.runwayThreshold.x,
+            trueY: geometry.runwayThreshold.y,
+            heading: geometry.approachCourseHeading,
+            groundSpeed: 160,
+            currentLevel: 0,
+            selectedLevel: 0,
+            isInbound: true,
+            approachCaptured: false
         )
+        let strip = makeStrip(selectedHeading: 0, selectedSpeed: 160, selectedLevel: 0, approachCleared: true)
 
-        clock.start()
-        now = 1.0
-        clock.advanceFrame(to: now)
-        clock.pause()
+        let outcome = service.apply(to: &aircraft, strip: strip, geometry: geometry, dt: 1.0)
 
-        now = 8.0
-        clock.advanceFrame(to: now)
-
-        clock.resume()
-        now = 9.0
-        clock.advanceFrame(to: now)
-
-        #expect(stepper.receivedDeltas.count == 2)
-        #expect(stepper.receivedDeltas[0] == 1.0)
-        #expect(stepper.receivedDeltas[1] == 1.0)
-        #expect(clock.elapsedSeconds == 2.0)
+        #expect(outcome.didCaptureLocalizer)
+        #expect(outcome.didLand)
+        #expect(aircraft.isLanded)
+        #expect(aircraft.groundSpeed == 0)
     }
 
-    @Test func simulationClockClampsLargeFrameDelta() {
-        let stepper = MockSimulationStepper()
-        var now = 10.0
-        let clock = SimulationClock(
-            simulationStepper: stepper,
-            tickInterval: 0.1,
-            maximumFrameDelta: 0.25,
-            nowProvider: { now }
-        )
+    @Test func conflictDetectionServiceDetectsWarning() {
+        let service = ConflictDetectionService()
+        let first = makeAircraft(callsign: "AAL1", trueX: 10, trueY: 10, currentLevel: 100, selectedLevel: 100)
+        let second = makeAircraft(callsign: "BAW2", trueX: 20, trueY: 20, currentLevel: 105, selectedLevel: 105)
 
-        clock.start()
-        now = 12.0
-        clock.advanceFrame(to: now)
+        let conflicts = service.detectConflicts(aircraft: [first, second]) { aircraft, _ in
+            CGPoint(x: aircraft.trueX, y: aircraft.trueY)
+        }
 
-        #expect(stepper.receivedDeltas.count == 1)
-        #expect(stepper.receivedDeltas[0] == 0.25)
-        #expect(clock.elapsedSeconds == 0.25)
+        #expect(conflicts.count == 1)
+        switch conflicts[0].severity {
+        case .warning:
+            #expect(Bool(true))
+        case .advisory:
+            #expect(Bool(false))
+        }
+    }
+
+    @Test func stripSyncServiceCopiesTrackState() {
+        let service = StripSyncService()
+        let aircraft = makeAircraft(heading: 274.6, currentLevel: 90, selectedLevel: 90, approachCaptured: true, isLanded: true)
+        var strip = makeStrip(selectedHeading: 90, selectedSpeed: 220, selectedLevel: 100)
+
+        service.syncStrip(from: aircraft, strip: &strip)
+
+        #expect(strip.currentLevel == 90)
+        #expect(strip.currentHeading == 275)
+        #expect(strip.approachCaptured)
+        #expect(strip.isLanded)
+    }
+
+    @Test func scoringServiceAppliesBonusesAndPenalties() {
+        let service = ScoringService()
+        let conflicts = [
+            ConflictDetectionService.Conflict(callsignPair: "A/B", severity: .warning, message: "x"),
+            ConflictDetectionService.Conflict(callsignPair: "C/D", severity: .advisory, message: "y")
+        ]
+
+        let score = service.computeScore(landedCount: 2, conflicts: conflicts)
+
+        #expect(score == 93)
     }
 
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
 
-    private func makeStrip(selectedHeading: Int, selectedSpeed: Int = 220, lastIssuedSpeed: Int = 220) -> EFPSStrip {
+    private func makeAircraft(
+        callsign: String = "EZY123",
+        trueX: CGFloat = 100,
+        trueY: CGFloat = 100,
+        heading: Double = 90,
+        groundSpeed: Int = 220,
+        currentLevel: Int = 100,
+        selectedLevel: Int = 100,
+        isInbound: Bool = true,
+        approachCaptured: Bool = false,
+        isLanded: Bool = false
+    ) -> Aircraft {
+        Aircraft(
+            callsign: callsign,
+            trueX: trueX,
+            trueY: trueY,
+            displayX: trueX,
+            displayY: trueY,
+            heading: heading,
+            groundSpeed: groundSpeed,
+            currentLevel: currentLevel,
+            selectedLevel: selectedLevel,
+            trend: .level,
+            aircraftType: "A320",
+            destination: "EGKK",
+            isInbound: isInbound,
+            approachCaptured: approachCaptured,
+            isLanded: isLanded
+        )
+    }
+
+    private func makeStrip(
+        selectedHeading: Int,
+        selectedSpeed: Int = 220,
+        selectedLevel: Int = 100,
+        lastIssuedSpeed: Int = 220,
+        approachCleared: Bool = false
+    ) -> EFPSStrip {
         EFPSStrip(
             aircraftID: UUID(),
             callsign: "EZY123",
@@ -179,15 +226,15 @@ struct UKRadarSimTests {
             destination: "EGKK",
             isInbound: true,
             bay: .inbound,
-            selectedLevel: 100,
-            currentLevel: 100,
+            selectedLevel: selectedLevel,
+            currentLevel: selectedLevel,
             selectedHeading: selectedHeading,
             currentHeading: 0,
             selectedSpeed: selectedSpeed,
             approachType: "ILS",
-            approachCleared: false,
+            approachCleared: approachCleared,
             instructionLog: [],
-            lastIssuedLevel: 100,
+            lastIssuedLevel: selectedLevel,
             lastIssuedHeading: 0,
             lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
