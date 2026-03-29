@@ -7,7 +7,6 @@ struct RadarCanvasView: View {
     let showsTerrainMap: Bool
     let geometry: RadarGeometry
 
-    private let predictor = AircraftPredictor()
     @State private var preRenderedMapImage: Image?
     @State private var cachedMapSize: CGSize = .zero
 
@@ -23,6 +22,14 @@ struct RadarCanvasView: View {
             .onAppear { updatePreRenderedMapIfNeeded(size: geo.size) }
             .onChange(of: geo.size) { _, newSize in
                 updatePreRenderedMapIfNeeded(size: newSize)
+            }
+            .onChange(of: showsTerrainMap) { _, _ in
+                preRenderedMapImage = nil
+                updatePreRenderedMapIfNeeded(size: geo.size)
+            }
+            .onChange(of: showsControlledAirspaceBase) { _, _ in
+                preRenderedMapImage = nil
+                updatePreRenderedMapIfNeeded(size: geo.size)
             }
         }
     }
@@ -41,7 +48,12 @@ struct RadarCanvasView: View {
                 .frame(width: size.width, height: size.height)
                 .allowsHitTesting(false)
         } else {
-            MapOverlayRenderer(geometry: geometry, size: size)
+            MapOverlayRenderer(
+                geometry: geometry,
+                size: size,
+                showsControlledAirspaceBase: showsControlledAirspaceBase,
+                showsTerrainMap: showsTerrainMap
+            )
         }
     }
 
@@ -49,7 +61,12 @@ struct RadarCanvasView: View {
         guard size.width > 0, size.height > 0 else { return }
         guard cachedMapSize != size || preRenderedMapImage == nil else { return }
 
-        let renderer = ImageRenderer(content: MapOverlayRenderer(geometry: geometry, size: size))
+        let renderer = ImageRenderer(content: MapOverlayRenderer(
+            geometry: geometry,
+            size: size,
+            showsControlledAirspaceBase: showsControlledAirspaceBase,
+            showsTerrainMap: showsTerrainMap
+        ))
         renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
         if let rendered = renderer.uiImage {
             preRenderedMapImage = Image(uiImage: rendered)
@@ -108,6 +125,8 @@ struct RadarCanvasView: View {
 private struct MapOverlayRenderer: View {
     let geometry: RadarGeometry
     let size: CGSize
+    let showsControlledAirspaceBase: Bool
+    let showsTerrainMap: Bool
 
     var body: some View {
         Canvas { context, canvasSize in
@@ -138,16 +157,16 @@ private struct MapOverlayRenderer: View {
                         terrainPath.closeSubpath()
                     }
                     terrainPath.closeSubpath()
-                }
-                context.fill(terrainPath, with: .color(Color.brown.opacity(0.15)))
-                context.stroke(terrainPath, with: .color(Color.orange.opacity(0.30)), lineWidth: 0.8)
-                if !sector.polygonFractions.isEmpty {
-                    let centroid = centroid(for: sector.polygonFractions)
-                    let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
-                    let text = Text(sector.minimumAltitudeLabel)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundColor(.orange.opacity(0.95))
-                    context.draw(text, at: point)
+                    context.fill(terrainPath, with: .color(Color.brown.opacity(0.15)))
+                    context.stroke(terrainPath, with: .color(Color.orange.opacity(0.30)), lineWidth: 0.8)
+                    if !sector.polygonFractions.isEmpty {
+                        let centroid = centroid(for: sector.polygonFractions)
+                        let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
+                        let text = Text(sector.minimumAltitudeLabel)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundColor(.orange.opacity(0.95))
+                        context.draw(text, at: point)
+                    }
                 }
             }
 
@@ -161,38 +180,30 @@ private struct MapOverlayRenderer: View {
             }
             context.stroke(ctr, with: .color(.white.opacity(0.35)), style: StrokeStyle(lineWidth: 1.2, dash: [6, 5]))
 
-                for shelf in geometry.controlledAirspaceShelves {
-                    var shelfPath = Path()
-                    if let firstPoint = shelf.polygonFractions.first {
-                        shelfPath.move(to: geometry.point(inViewFromFraction: firstPoint, viewSize: size))
-                        for point in shelf.polygonFractions.dropFirst() {
-                            shelfPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
-                        }
-                        shelfPath.closeSubpath()
+            for shelf in geometry.controlledAirspaceShelves {
+                var shelfPath = Path()
+                if let firstPoint = shelf.polygonFractions.first {
+                    shelfPath.move(to: geometry.point(inViewFromFraction: firstPoint, viewSize: size))
+                    for point in shelf.polygonFractions.dropFirst() {
+                        shelfPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
                     }
-
-                    context.fill(shelfPath, with: .color(Color.cyan.opacity(0.08)))
-                    context.stroke(
-                        shelfPath,
-                        with: .color(.cyan.opacity(0.35)),
-                        style: StrokeStyle(lineWidth: 0.9, dash: [4, 4])
-                    )
-
-                    if !shelf.polygonFractions.isEmpty {
-                        let centroid = centroid(for: shelf.polygonFractions)
-                        let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
-                        let text = Text("BASE \(shelf.floorLabel)")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.cyan.opacity(0.95))
-                        context.draw(text, at: point)
-                    }
+                    shelfPath.closeSubpath()
                 }
+
                 context.fill(shelfPath, with: .color(Color.cyan.opacity(0.08)))
-                context.stroke(shelfPath, with: .color(.cyan.opacity(0.35)), style: StrokeStyle(lineWidth: 0.9, dash: [4, 4]))
+                context.stroke(
+                    shelfPath,
+                    with: .color(.cyan.opacity(0.35)),
+                    style: StrokeStyle(lineWidth: 0.9, dash: [4, 4])
+                )
+
                 if !shelf.polygonFractions.isEmpty {
                     let centroid = centroid(for: shelf.polygonFractions)
                     let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
-                    let text = Text("\(shelf.floorLabel)-\(shelf.ceilingLabel)")
+                    let label = showsControlledAirspaceBase
+                        ? "BASE \(shelf.floorLabel)"
+                        : "\(shelf.floorLabel)-\(shelf.ceilingLabel)"
+                    let text = Text(label)
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundColor(.cyan.opacity(0.95))
                     context.draw(text, at: point)
