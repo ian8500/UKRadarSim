@@ -192,6 +192,19 @@ class SimulationEngine: ObservableObject {
         }
     }
 
+
+    func predictedPosition(for aircraftID: UUID, lookaheadSeconds: Double) -> CGPoint? {
+        guard let track = aircraft.first(where: { $0.id == aircraftID }) else {
+            return nil
+        }
+
+        return predictor.predictedState(for: track, lookaheadSeconds: lookaheadSeconds).projectedPosition
+    }
+
+    func predictedStates(lookaheadSeconds: Double) -> [PredictedAircraftState] {
+        predictor.predictedStates(for: aircraft, lookaheadSeconds: lookaheadSeconds)
+    }
+
     func sendInstruction(stripID: UUID, changedFields: Set<InstructionChange> = []) {
         guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
             return

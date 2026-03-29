@@ -5,6 +5,8 @@ struct RadarCanvasView: View {
     let vectorSetting: VectorSetting
     let geometry: RadarGeometry
 
+    private let predictor = AircraftPredictor()
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
