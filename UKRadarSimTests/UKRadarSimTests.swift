@@ -5,7 +5,7 @@ import Testing
 struct UKRadarSimTests {
 
     @Test func radarDisplayUpdatesOnlyOnRadarTick() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
 
         let baselineDisplay = CGPoint(x: engine.aircraft[0].displayX, y: engine.aircraft[0].displayY)
@@ -26,7 +26,7 @@ struct UKRadarSimTests {
     }
 
     @Test func headingTargetConvergesGradually() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
         #expect(!engine.strips.isEmpty)
 
@@ -45,7 +45,7 @@ struct UKRadarSimTests {
     }
 
     @Test func levelOffOccursWhenSelectedLevelReached() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
         #expect(!engine.strips.isEmpty)
 
@@ -239,5 +239,13 @@ struct UKRadarSimTests {
             lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
         )
+    }
+}
+
+private final class MockSimulationStepper: SimulationStepping {
+    private(set) var receivedDeltas: [CGFloat] = []
+
+    func step(dt: CGFloat) {
+        receivedDeltas.append(dt)
     }
 }
