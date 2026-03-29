@@ -19,6 +19,7 @@ class SimulationEngine: ObservableObject {
     private let centerlineStart = CGPoint(x: 180, y: 576)
     private let runwayThreshold = CGPoint(x: 790, y: 232)
     private var verticalProgressByAircraft: [UUID: Double] = [:]
+    private let predictor = AircraftPredictor()
 
     init() {
         setupTestAircraft()
@@ -213,6 +214,19 @@ class SimulationEngine: ObservableObject {
             verticalProgressByAircraft[aircraftID] = 0
             aircraft[index].trend = .level
         }
+    }
+
+
+    func predictedPosition(for aircraftID: UUID, lookaheadSeconds: Double) -> CGPoint? {
+        guard let track = aircraft.first(where: { $0.id == aircraftID }) else {
+            return nil
+        }
+
+        return predictor.predictedState(for: track, lookaheadSeconds: lookaheadSeconds).projectedPosition
+    }
+
+    func predictedStates(lookaheadSeconds: Double) -> [PredictedAircraftState] {
+        predictor.predictedStates(for: aircraft, lookaheadSeconds: lookaheadSeconds)
     }
 
     func sendInstruction(stripID: UUID, changedFields: Set<InstructionChange> = []) {

@@ -4,6 +4,8 @@ struct RadarCanvasView: View {
     let aircraft: [Aircraft]
     let vectorSetting: VectorSetting
 
+    private let predictor = AircraftPredictor()
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -95,7 +97,7 @@ struct RadarCanvasView: View {
             guard vectorSetting != .off else { return }
 
             for item in aircraft {
-                let endpoint = vectorEndpoint(for: item, lookaheadSeconds: vectorSetting.lookaheadSeconds)
+                let endpoint = predictor.predictedState(for: item, lookaheadSeconds: vectorSetting.lookaheadSeconds).projectedPosition
                 var path = Path()
                 path.move(to: CGPoint(x: item.displayX, y: item.displayY))
                 path.addLine(to: endpoint)
@@ -111,16 +113,6 @@ struct RadarCanvasView: View {
         }
     }
 
-    private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
-        let headingRad = CGFloat(aircraft.heading * .pi / 180.0)
-        let speedScale: CGFloat = 0.02
-        let distance = CGFloat(Double(aircraft.groundSpeed) * lookaheadSeconds) * speedScale
-
-        return CGPoint(
-            x: aircraft.displayX + cos(headingRad) * distance,
-            y: aircraft.displayY - sin(headingRad) * distance
-        )
-    }
 }
 
 struct AircraftTrackView: View {
