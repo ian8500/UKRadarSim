@@ -25,76 +25,155 @@ private struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Welcome to UK Radar Sim")
-                        .font(.largeTitle.weight(.bold))
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Color.blue.opacity(0.20),
+                        Color.indigo.opacity(0.08),
+                        Color.black.opacity(0.02)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-                    Text("Choose an airport and difficulty to begin your session.")
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Difficulty")
-                        .font(.headline)
-
-                    Picker("Difficulty", selection: $appState.selectedDifficulty) {
-                        ForEach(DifficultyLevel.allCases) { level in
-                            VStack(alignment: .leading) {
-                                Text(level.title)
-                                Text(level.subtitle)
-                            }
-                            .tag(level)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Text(appState.selectedDifficulty.subtitle)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Airport")
-                        .font(.headline)
-
-                    Picker("Airport", selection: $appState.selectedAirportICAO) {
-                        ForEach(appState.airports) { airport in
-                            let locked = !appState.canAccess(airport: airport)
-                            Text(locked ? "\(airport.name) (Premium)" : airport.name)
-                                .tag(airport.icao)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    if let airport = appState.selectedAirport {
-                        if appState.canAccess(airport: airport) {
-                            Text("Selected: \(airport.name) (\(airport.icao))")
-                                .font(.footnote)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("UK Radar Sim", systemImage: "dot.radiowaves.forward")
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.secondary)
-                        } else {
-                            Text("\(airport.name) is premium. Switch to an unlocked airport to start.")
-                                .font(.footnote)
-                                .foregroundStyle(.orange)
+
+                            Text("Control UK airspace with confidence.")
+                                .font(.largeTitle.weight(.bold))
+
+                            Text("Pick a traffic profile and airport, then launch directly into a focused radar session.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
                         }
+
+                        quickStatsCard
+                        sessionSetupCard
+                        startButton
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Home")
+        }
+    }
+
+    private var quickStatsCard: some View {
+        HStack(spacing: 12) {
+            DashboardStat(title: "Airports", value: "\(appState.airports.count)", symbol: "airplane.departure")
+            DashboardStat(title: "Difficulty", value: appState.selectedDifficulty.title, symbol: "speedometer")
+            DashboardStat(
+                title: "Access",
+                value: appState.featureAccess.hasPremiumEntitlements ? "Premium" : "Standard",
+                symbol: appState.featureAccess.hasPremiumEntitlements ? "star.circle.fill" : "star.circle"
+            )
+        }
+    }
+
+    private var sessionSetupCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Session Setup")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Difficulty")
+                    .font(.subheadline.weight(.semibold))
+
+                Picker("Difficulty", selection: $appState.selectedDifficulty) {
+                    ForEach(DifficultyLevel.allCases) { level in
+                        Text(level.title).tag(level)
                     }
                 }
+                .pickerStyle(.segmented)
 
-                Button {
-                    appState.activeScreen = .simulator
-                } label: {
-                    Text("Start Session")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(appState.selectedAirport.map { !appState.canAccess(airport: $0) } ?? true)
-
-                Spacer()
+                Text(appState.selectedDifficulty.subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
-            .padding()
-            .navigationTitle("Home")
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Airport")
+                    .font(.subheadline.weight(.semibold))
+
+                Picker("Airport", selection: $appState.selectedAirportICAO) {
+                    ForEach(appState.airports) { airport in
+                        let locked = !appState.canAccess(airport: airport)
+                        Text(locked ? "\(airport.name) (Premium)" : "\(airport.name) (\(airport.icao))")
+                            .tag(airport.icao)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                if let airport = appState.selectedAirport {
+                    if appState.canAccess(airport: airport) {
+                        Text("Selected: \(airport.name) (\(airport.icao))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("\(airport.name) is premium. Unlock premium to start there.")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.25), lineWidth: 1)
+        }
+    }
+
+    private var startButton: some View {
+        Button {
+            appState.activeScreen = .simulator
+        } label: {
+            HStack {
+                Image(systemName: "play.fill")
+                Text("Start Session")
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(appState.selectedAirport.map { !appState.canAccess(airport: $0) } ?? true)
+    }
+}
+
+private struct DashboardStat: View {
+    let title: String
+    let value: String
+    let symbol: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: symbol)
+                .font(.headline)
+                .foregroundStyle(.indigo)
+
+            Text(value)
+                .font(.headline.weight(.bold))
+
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.20), lineWidth: 1)
         }
     }
 }
