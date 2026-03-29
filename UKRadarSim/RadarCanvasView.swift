@@ -3,6 +3,7 @@ import SwiftUI
 struct RadarCanvasView: View {
     let aircraft: [Aircraft]
     let vectorSetting: VectorSetting
+    let predictedVectorEndpoint: (Aircraft, Double) -> CGPoint
     let showsControlledAirspaceBase: Bool
     let showsTerrainMap: Bool
     let geometry: RadarGeometry
@@ -218,12 +219,7 @@ struct RadarCanvasView: View {
     }
 
     private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
-        MotionProjection.project(
-            from: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
-            headingDegrees: aircraft.heading,
-            groundSpeed: aircraft.groundSpeed,
-            elapsedSeconds: CGFloat(lookaheadSeconds)
-        )
+        predictedVectorEndpoint(aircraft, lookaheadSeconds)
     }
 }
 

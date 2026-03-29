@@ -201,11 +201,37 @@ class SimulationEngine: ObservableObject {
             return nil
         }
 
-        return predictor.predictedState(for: track, lookaheadSeconds: lookaheadSeconds).projectedPosition
+        let intentLookup = intentByAircraftID()
+        let startPosition = CGPoint(x: track.trueX, y: track.trueY)
+        return predictedState(
+            for: track,
+            intentLookup: intentLookup,
+            lookaheadSeconds: lookaheadSeconds,
+            startPosition: startPosition
+        ).projectedPosition
+    }
+
+    func predictedDisplayPosition(for aircraftID: UUID, lookaheadSeconds: Double) -> CGPoint? {
+        guard let track = aircraft.first(where: { $0.id == aircraftID }) else {
+            return nil
+        }
+
+        let intentLookup = intentByAircraftID()
+        let startPosition = CGPoint(x: track.displayX, y: track.displayY)
+        return predictedState(
+            for: track,
+            intentLookup: intentLookup,
+            lookaheadSeconds: lookaheadSeconds,
+            startPosition: startPosition
+        ).projectedPosition
     }
 
     func predictedStates(lookaheadSeconds: Double) -> [PredictedAircraftState] {
-        predictor.predictedStates(for: aircraft, lookaheadSeconds: lookaheadSeconds)
+        predictor.predictedStates(
+            for: aircraft,
+            intentByAircraftID: intentByAircraftID(),
+            lookaheadSeconds: lookaheadSeconds
+        )
     }
 
     func sendInstruction(stripID: UUID, changedFields: Set<InstructionChange> = []) {
@@ -300,5 +326,37 @@ class SimulationEngine: ObservableObject {
         activeAlerts = conflicts.map {
             SafetyAlert(callsignPair: $0.callsignPair, message: $0.message, severity: $0.severity)
         }
+    }
+
+    private func intentByAircraftID() -> [UUID: TrackIntent] {
+        Dictionary(uniqueKeysWithValues: strips.map { strip in
+            (
+                strip.aircraftID,
+                TrackIntent(
+                    selectedHeading: Double(strip.selectedHeading),
+                    selectedSpeed: strip.selectedSpeed,
+                    selectedLevel: strip.selectedLevel
+                )
+            )
+        })
+    }
+
+    private func predictedState(
+        for track: Aircraft,
+        intentLookup: [UUID: TrackIntent],
+        lookaheadSeconds: Double,
+        startPosition: CGPoint
+    ) -> PredictedAircraftState {
+        let intent = intentLookup[track.id] ?? TrackIntent(
+            selectedHeading: track.heading,
+            selectedSpeed: track.groundSpeed,
+            selectedLevel: track.currentLevel
+        )
+        return predictor.predictedState(
+            for: track,
+            intent: intent,
+            lookaheadSeconds: lookaheadSeconds,
+            startPosition: startPosition
+        )
     }
 }

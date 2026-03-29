@@ -4,6 +4,8 @@ import Testing
 
 struct UKRadarSimTests {
 
+    private let startupScenario = ScenarioLibrary.default
+
     @Test func radarDisplayUpdatesOnlyOnRadarTick() {
         let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
@@ -238,6 +240,24 @@ struct UKRadarSimTests {
             lastIssuedHeading: 0,
             lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
+        )
+    }
+
+    private func makeAircraft(heading: Double, groundSpeed: Int, currentLevel: Int) -> Aircraft {
+        Aircraft(
+            callsign: "TEST123",
+            trueX: 500,
+            trueY: 500,
+            displayX: 500,
+            displayY: 500,
+            heading: heading,
+            groundSpeed: groundSpeed,
+            currentLevel: currentLevel,
+            selectedLevel: currentLevel,
+            trend: .level,
+            aircraftType: "A320",
+            destination: "EGKK",
+            isInbound: true
         )
     }
 }
