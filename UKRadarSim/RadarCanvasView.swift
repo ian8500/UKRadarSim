@@ -2,22 +2,17 @@ import SwiftUI
 
 struct RadarCanvasView: View {
     let aircraft: [Aircraft]
-
-    @State private var sweepAngle: Double = -90
-    private let sweepTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
+    let vectorSetting: VectorSetting
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 radarBackground
                 radarMap(in: geo.size)
-                sweepLayer(in: geo.size)
+                vectorLayer
                 aircraftLayer
             }
             .clipped()
-            .onReceive(sweepTimer) { _ in
-                advanceSweep()
-            }
         }
     }
 
@@ -95,45 +90,17 @@ struct RadarCanvasView: View {
         }
     }
 
-    @ViewBuilder
-    private func sweepLayer(in size: CGSize) -> some View {
-        Canvas { context, canvasSize in
-            let w = canvasSize.width
-            let h = canvasSize.height
-            let center = CGPoint(x: w / 2, y: h / 2)
+    private var vectorLayer: some View {
+        Canvas { context, _ in
+            guard vectorSetting != .off else { return }
 
-            let angleRad = CGFloat(sweepAngle * .pi / 180.0)
-            let length = max(w, h)
-
-            var sweep = Path()
-            sweep.move(to: center)
-            sweep.addLine(to: CGPoint(
-                x: center.x + cos(angleRad) * length,
-                y: center.y + sin(angleRad) * length
-            ))
-
-            context.stroke(
-                sweep,
-                with: .color(.green.opacity(0.55)),
-                lineWidth: 2
-            )
-
-            // subtle glow wedge
-            var glow = Path()
-            glow.move(to: center)
-            glow.addArc(
-                center: center,
-                radius: length * 0.95,
-                startAngle: .degrees(sweepAngle - 3),
-                endAngle: .degrees(sweepAngle + 3),
-                clockwise: false
-            )
-            glow.closeSubpath()
-
-            context.fill(
-                glow,
-                with: .color(.green.opacity(0.08))
-            )
+            for item in aircraft {
+                let endpoint = vectorEndpoint(for: item, lookaheadSeconds: vectorSetting.lookaheadSeconds)
+                var path = Path()
+                path.move(to: CGPoint(x: item.displayX, y: item.displayY))
+                path.addLine(to: endpoint)
+                context.stroke(path, with: .color(Color.cyan.opacity(0.55)), lineWidth: 1)
+            }
         }
         .allowsHitTesting(false)
     }
@@ -144,13 +111,15 @@ struct RadarCanvasView: View {
         }
     }
 
-    private func advanceSweep() {
-        let degreesPerFrame = 360.0 / (6.0 * 60.0) // 6 seconds at 60fps
-        sweepAngle += degreesPerFrame
+    private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
+        let headingRad = CGFloat(aircraft.heading * .pi / 180.0)
+        let speedScale: CGFloat = 0.02
+        let distance = CGFloat(Double(aircraft.groundSpeed) * lookaheadSeconds) * speedScale
 
-        if sweepAngle >= 270 {
-            sweepAngle -= 360
-        }
+        return CGPoint(
+            x: aircraft.displayX + cos(headingRad) * distance,
+            y: aircraft.displayY - sin(headingRad) * distance
+        )
     }
 }
 
