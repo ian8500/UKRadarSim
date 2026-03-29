@@ -69,6 +69,9 @@ struct MainRadarView: View {
                         sendInstruction: { stripID in
                             sim.sendInstruction(stripID: stripID)
                         },
+                        clearForApproach: { stripID in
+                            sim.clearForApproach(stripID: stripID)
+                        },
                         flitStrip: { stripID, targetBay in
                             sim.flitStrip(stripID: stripID, to: targetBay)
                         }

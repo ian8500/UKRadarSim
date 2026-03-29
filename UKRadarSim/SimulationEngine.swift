@@ -57,12 +57,13 @@ class SimulationEngine: ObservableObject {
                 aircraftType: item.isInbound ? "A320" : "B738",
                 destination: item.destination,
                 isInbound: item.isInbound,
-                bay: item.isInbound ? .inbound : .departed,
+                bay: item.isInbound ? .inbound : .outbound,
                 selectedLevel: item.selectedLevel,
                 currentLevel: item.currentLevel,
                 selectedHeading: Int(item.heading),
                 selectedSpeed: item.groundSpeed,
                 approachType: item.isInbound ? "ILS" : "SID",
+                approachCleared: false,
                 instructionLog: []
             )
         }
@@ -143,5 +144,16 @@ class SimulationEngine: ObservableObject {
         }
 
         strips[stripIndex].bay = bay
+    }
+
+    func clearForApproach(stripID: UUID) {
+        guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
+            return
+        }
+
+        strips[stripIndex].approachCleared = true
+        let strip = strips[stripIndex]
+        let instruction = "\(strip.callsign) | CLEARED \(strip.approachType) APPROACH"
+        strips[stripIndex].instructionLog.insert(instruction, at: 0)
     }
 }
