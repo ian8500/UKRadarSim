@@ -3,14 +3,21 @@ import SwiftUI
 struct RadarCanvasView: View {
     let aircraft: [Aircraft]
 
+    @State private var sweepAngle: Double = -90
+    private let sweepTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 radarBackground
                 radarMap(in: geo.size)
+                sweepLayer(in: geo.size)
                 aircraftLayer
             }
             .clipped()
+            .onReceive(sweepTimer) { _ in
+                advanceSweep()
+            }
         }
     }
 
@@ -88,9 +95,61 @@ struct RadarCanvasView: View {
         }
     }
 
+    @ViewBuilder
+    private func sweepLayer(in size: CGSize) -> some View {
+        Canvas { context, canvasSize in
+            let w = canvasSize.width
+            let h = canvasSize.height
+            let center = CGPoint(x: w / 2, y: h / 2)
+
+            let angleRad = CGFloat(sweepAngle * .pi / 180.0)
+            let length = max(w, h)
+
+            var sweep = Path()
+            sweep.move(to: center)
+            sweep.addLine(to: CGPoint(
+                x: center.x + cos(angleRad) * length,
+                y: center.y + sin(angleRad) * length
+            ))
+
+            context.stroke(
+                sweep,
+                with: .color(.green.opacity(0.55)),
+                lineWidth: 2
+            )
+
+            // subtle glow wedge
+            var glow = Path()
+            glow.move(to: center)
+            glow.addArc(
+                center: center,
+                radius: length * 0.95,
+                startAngle: .degrees(sweepAngle - 3),
+                endAngle: .degrees(sweepAngle + 3),
+                clockwise: false
+            )
+            glow.closeSubpath()
+
+            context.fill(
+                glow,
+                with: .color(.green.opacity(0.08))
+            )
+        }
+        .allowsHitTesting(false)
+    }
+
     private var aircraftLayer: some View {
         ForEach(aircraft) { aircraft in
             AircraftTrackView(aircraft: aircraft)
+        }
+    }
+
+    private func advanceSweep() {
+        let degreesPerFrame = 360.0 / (6.0 * 60.0) // 6 seconds at 60fps
+        sweepAngle += degreesPerFrame
+
+        if sweepAngle >= 270 {
+            sweepAngle -= 360
         }
     }
 }

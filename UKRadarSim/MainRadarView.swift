@@ -1,25 +1,11 @@
 import SwiftUI
 
 struct MainRadarView: View {
-    @State private var aircraft: [Aircraft] = [
-        Aircraft(
-            callsign: "EZY15WY",
-            trueX: 240,
-            trueY: 310,
-            displayX: 240,
-            displayY: 310,
-            heading: 055,
-            groundSpeed: 355,
-            currentLevel: 107,
-            selectedLevel: 80,
-            trend: .descend,
-            destination: "KK"
-        )
-    ]
+    @StateObject private var sim = SimulationEngine()
 
     var body: some View {
         VStack(spacing: 0) {
-            RadarCanvasView(aircraft: aircraft)
+            RadarCanvasView(aircraft: sim.aircraft)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             toolbar
@@ -48,7 +34,7 @@ struct MainRadarView: View {
     private var stripArea: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(aircraft) { item in
+                ForEach(sim.aircraft) { item in
                     StripCard(
                         callsign: item.callsign,
                         level: "F\(String(format: "%03d", item.currentLevel))",
@@ -61,4 +47,8 @@ struct MainRadarView: View {
         }
         .background(Color(red: 0.12, green: 0.14, blue: 0.16))
     }
+}
+
+#Preview {
+    MainRadarView()
 }
