@@ -67,6 +67,10 @@ struct EFPSStrip: Identifiable {
     var approachCaptured: Bool = false
     var isLanded: Bool = false
     var instructionLog: [String]
+    var lastIssuedLevel: Int?
+    var lastIssuedHeading: Int?
+    var lastIssuedSpeed: Int?
+    var lastIssuedApproachType: String?
 
     var stripColorHex: String {
         isInbound ? "#E8CF9B" : "#D2E4FF"
