@@ -6,6 +6,7 @@ struct MainRadarView: View {
     @StateObject private var sim: SimulationEngine
     @StateObject private var clock: SimulationClock
     @State private var selectedBayFilter: StripBay?
+    @State private var showWakeGuide = false
 
     let selectedAirport: AirportConfig
     let difficulty: DifficultyLevel
@@ -56,7 +57,7 @@ struct MainRadarView: View {
 
             ToolbarButton(title: "Layers")
             vectorsMenu
-            ToolbarButton(title: "Wake")
+            wakeButton
             speedMenu
 
             Button(clock.isRunning ? "Pause" : "Resume") {
@@ -87,6 +88,24 @@ struct MainRadarView: View {
         }
         .padding()
         .background(Color(red: 0.08, green: 0.10, blue: 0.12))
+    }
+
+    private var wakeButton: some View {
+        Button(action: {}) {
+            Text("Wake")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.blue.opacity(0.25))
+                .cornerRadius(8)
+        }
+        .onLongPressGesture(minimumDuration: 0.15, maximumDistance: 40, pressing: { pressing in
+            showWakeGuide = pressing
+        }, perform: {})
+        .popover(isPresented: $showWakeGuide, attachmentAnchor: .point(.bottom), arrowEdge: .top) {
+            WakeTurbulencePopup()
+        }
     }
 
     private var speedMenu: some View {
