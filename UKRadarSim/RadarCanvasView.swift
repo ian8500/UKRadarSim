@@ -9,14 +9,35 @@ struct RadarCanvasView: View {
 
     @State private var preRenderedMapImage: Image?
     @State private var cachedMapSize: CGSize = .zero
+    @State private var zoomScale: CGFloat = 1.0
+    @GestureState private var pinchScale: CGFloat = 1.0
+
+    private let minZoom: CGFloat = 0.6
+    private let maxZoom: CGFloat = 3.0
+    private let referenceRangeNM: CGFloat = 20
 
     var body: some View {
         GeometryReader { geo in
-            ZStack {
-                radarBackground
-                radarMap(in: geo.size)
-                vectorLayer(in: geo.size)
-                aircraftLayer(in: geo.size)
+            ZStack(alignment: .bottomTrailing) {
+                ZStack {
+                    radarBackground
+                    radarMap(in: geo.size)
+                    vectorLayer(in: geo.size)
+                    aircraftLayer(in: geo.size)
+                }
+                .scaleEffect(effectiveZoom)
+                .gesture(
+                    MagnificationGesture()
+                        .updating($pinchScale) { value, state, _ in
+                            state = value
+                        }
+                        .onEnded { value in
+                            zoomScale = clampedZoom(zoomScale * value)
+                        }
+                )
+
+                radarScaleOverlay(viewSize: geo.size)
+                    .padding(12)
             }
             .clipped()
             .onAppear { updatePreRenderedMapIfNeeded(size: geo.size) }
@@ -32,6 +53,76 @@ struct RadarCanvasView: View {
                 updatePreRenderedMapIfNeeded(size: geo.size)
             }
         }
+    }
+
+    private var effectiveZoom: CGFloat {
+        clampedZoom(zoomScale * pinchScale)
+    }
+
+    private func clampedZoom(_ value: CGFloat) -> CGFloat {
+        min(max(value, minZoom), maxZoom)
+    }
+
+    @ViewBuilder
+    private func radarScaleOverlay(viewSize: CGSize) -> some View {
+        let nmToPixels = (min(viewSize.width, viewSize.height) * 0.5 * effectiveZoom) / referenceRangeNM
+        let distances: [CGFloat] = [20, 10, 3]
+
+        VStack(alignment: .trailing, spacing: 8) {
+            ForEach(distances, id: \.self) { distance in
+                let width = max(20, distance * nmToPixels)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(Int(distance))nm")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.white.opacity(0.95))
+
+                    Rectangle()
+                        .fill(Color.white.opacity(0.9))
+                        .frame(width: width, height: 2)
+                        .overlay(alignment: .leading) {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.9))
+                                .frame(width: 2, height: 8)
+                        }
+                        .overlay(alignment: .trailing) {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.9))
+                                .frame(width: 2, height: 8)
+                        }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    zoomScale = clampedZoom(zoomScale * 0.85)
+                } label: {
+                    Image(systemName: "minus.magnifyingglass")
+                }
+                .buttonStyle(.bordered)
+
+                Text("\(Int((effectiveZoom * 100).rounded()))%")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.9))
+                    .frame(minWidth: 44)
+
+                Button {
+                    zoomScale = clampedZoom(zoomScale * 1.15)
+                } label: {
+                    Image(systemName: "plus.magnifyingglass")
+                }
+                .buttonStyle(.bordered)
+            }
+            .tint(.white.opacity(0.9))
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.black.opacity(0.38))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(.white.opacity(0.2), lineWidth: 1)
+        )
     }
 
     private var radarBackground: some View {
