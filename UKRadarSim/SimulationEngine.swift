@@ -3,6 +3,7 @@ import CoreGraphics
 
 class SimulationEngine: ObservableObject {
     @Published var aircraft: [Aircraft] = []
+    @Published var strips: [EFPSStrip] = []
 
     private var movementTimer: Timer?
     private var radarTimer: Timer?
@@ -30,9 +31,37 @@ class SimulationEngine: ObservableObject {
                 currentLevel: 107,
                 selectedLevel: 80,
                 trend: .descend,
-                destination: "KK"
+                destination: "KK",
+                isInbound: true
+            ),
+            Aircraft(
+                callsign: "BAW214",
+                trueX: 530,
+                trueY: 450,
+                displayX: 530,
+                displayY: 450,
+                heading: 230,
+                groundSpeed: 280,
+                currentLevel: 40,
+                selectedLevel: 50,
+                trend: .climb,
+                destination: "EGLL",
+                isInbound: false
             )
         ]
+
+        strips = aircraft.map { item in
+            EFPSStrip(
+                aircraftID: item.id,
+                callsign: item.callsign,
+                destination: item.destination,
+                isInbound: item.isInbound,
+                bay: item.isInbound ? .inbound : .departed,
+                selectedLevel: item.selectedLevel,
+                currentLevel: item.currentLevel,
+                instructionLog: []
+            )
+        }
     }
 
     private func start() {
@@ -59,6 +88,7 @@ class SimulationEngine: ObservableObject {
             aircraft[i].trueY -= sin(headingRad) * distance
 
             wrapAircraftIfNeeded(index: i)
+            syncStripFromAircraft(at: i)
         }
     }
 
@@ -74,5 +104,36 @@ class SimulationEngine: ObservableObject {
         if aircraft[index].trueX < -100 { aircraft[index].trueX = 1100 }
         if aircraft[index].trueY > 900 { aircraft[index].trueY = -100 }
         if aircraft[index].trueY < -100 { aircraft[index].trueY = 900 }
+    }
+
+    private func syncStripFromAircraft(at index: Int) {
+        let currentAircraft = aircraft[index]
+        guard let stripIndex = strips.firstIndex(where: { $0.aircraftID == currentAircraft.id }) else {
+            return
+        }
+
+        strips[stripIndex].currentLevel = currentAircraft.currentLevel
+        strips[stripIndex].selectedLevel = currentAircraft.selectedLevel
+    }
+
+    func sendInstruction(stripID: UUID) {
+        guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
+            return
+        }
+
+        let instruction = strips[stripIndex].pendingInstruction
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard instruction.isEmpty == false else { return }
+
+        strips[stripIndex].instructionLog.insert(instruction, at: 0)
+        strips[stripIndex].pendingInstruction = ""
+    }
+
+    func flitStrip(stripID: UUID, to bay: StripBay) {
+        guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
+            return
+        }
+
+        strips[stripIndex].bay = bay
     }
 }
