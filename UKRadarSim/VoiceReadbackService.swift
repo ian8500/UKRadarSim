@@ -20,8 +20,10 @@ final class VoiceReadbackService {
         let phraseology = buildCAAReadback(for: strip)
         let utterance = AVSpeechUtterance(string: phraseology)
         utterance.voice = voice(for: strip.callsign)
-        utterance.rate = 0.47
-        utterance.pitchMultiplier = 1.0
+        utterance.rate = 0.44
+        utterance.pitchMultiplier = 0.96
+        utterance.volume = 0.95
+        utterance.prefersAssistiveTechnologySettings = true
 
         synthesizer.speak(utterance)
     }
@@ -71,8 +73,9 @@ final class VoiceReadbackService {
 
         let accent = accentForAirline(callsign: callsign)
         let available = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == accent.rawValue }
+        let ranked = rankVoices(available)
 
-        let selected = selectMixedVoice(from: available)
+        let selected = selectMixedVoice(from: ranked)
             ?? AVSpeechSynthesisVoice(language: accent.rawValue)
             ?? AVSpeechSynthesisVoice(language: PilotAccent.american.rawValue)
 
@@ -115,6 +118,40 @@ final class VoiceReadbackService {
         }
 
         return voices.randomElement()
+    }
+
+    private func rankVoices(_ voices: [AVSpeechSynthesisVoice]) -> [AVSpeechSynthesisVoice] {
+        voices.sorted { lhs, rhs in
+            score(lhs) > score(rhs)
+        }
+    }
+
+    private func score(_ voice: AVSpeechSynthesisVoice) -> Int {
+        let qualityScore: Int
+        switch voice.quality {
+        case .premium:
+            qualityScore = 300
+        case .enhanced:
+            qualityScore = 200
+        default:
+            qualityScore = 100
+        }
+
+        let name = voice.name.lowercased()
+        let identifier = voice.identifier.lowercased()
+
+        var realismBoost = 0
+        if name.contains("siri") || identifier.contains("siri") {
+            realismBoost += 25
+        }
+        if identifier.contains("premium") {
+            realismBoost += 15
+        }
+        if identifier.contains("enhanced") {
+            realismBoost += 10
+        }
+
+        return qualityScore + realismBoost
     }
 
     private func looksFemale(_ voiceName: String) -> Bool {
