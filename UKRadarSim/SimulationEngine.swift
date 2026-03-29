@@ -183,15 +183,15 @@ class SimulationEngine: ObservableObject {
         aircraft[index].heading = moveAngle(
             aircraft[index].heading,
             toward: headingTarget,
-            maxDelta: Double(dt) * 3.0
+            maxDelta: Double(dt) * config.headingTurnRateDegreesPerSecond
         )
 
         let speedTarget = strips[stripIndex].selectedSpeed
         if aircraft[index].groundSpeed < speedTarget {
-            let increase = max(1, Int((Double(dt) * 8.0).rounded()))
+            let increase = max(1, Int((Double(dt) * config.accelerationRateKnotsPerSecond).rounded()))
             aircraft[index].groundSpeed = min(speedTarget, aircraft[index].groundSpeed + increase)
         } else if aircraft[index].groundSpeed > speedTarget {
-            let decrease = max(1, Int((Double(dt) * 10.0).rounded()))
+            let decrease = max(1, Int((Double(dt) * config.decelerationRateKnotsPerSecond).rounded()))
             aircraft[index].groundSpeed = max(speedTarget, aircraft[index].groundSpeed - decrease)
         }
 
@@ -199,8 +199,7 @@ class SimulationEngine: ObservableObject {
         if aircraft[index].currentLevel != levelTarget {
             let direction = levelTarget > aircraft[index].currentLevel ? 1 : -1
             let progressKey = aircraftID
-            let verticalRateFLPerSecond = 0.2
-            verticalProgressByAircraft[progressKey, default: 0] += verticalRateFLPerSecond * Double(dt)
+            verticalProgressByAircraft[progressKey, default: 0] += config.climbDescentRateFLPerSecond * Double(dt)
 
             while verticalProgressByAircraft[progressKey, default: 0] >= 1.0,
                   aircraft[index].currentLevel != levelTarget {
@@ -288,7 +287,9 @@ class SimulationEngine: ObservableObject {
         let distanceToLocalizer = distanceFromPoint(position, toSegmentFrom: geometry.centerlineStart, to: geometry.runwayThreshold)
         let headingError = angularDifference(aircraft[index].heading, geometry.approachCourseHeading)
 
-        if !aircraft[index].approachCaptured, distanceToLocalizer < 24, headingError < 35 {
+        if !aircraft[index].approachCaptured,
+           distanceToLocalizer < config.localizerCapture.maxDistancePixels,
+           headingError < config.localizerCapture.maxHeadingErrorDegrees {
             aircraft[index].approachCaptured = true
             strips[stripIndex].instructionLog.insert("\(aircraft[index].callsign) | LOC CAPTURED", at: 0)
         }
@@ -300,18 +301,23 @@ class SimulationEngine: ObservableObject {
         let newHeading = moveAngle(aircraft[index].heading, toward: geometry.approachCourseHeading, maxDelta: Double(dt) * 8)
         aircraft[index].heading = newHeading
 
-        if aircraft[index].groundSpeed > 145 {
-            aircraft[index].groundSpeed = max(145, aircraft[index].groundSpeed - 1)
+        if aircraft[index].groundSpeed > config.approachTargetGroundSpeedKnots {
+            aircraft[index].groundSpeed = max(
+                config.approachTargetGroundSpeedKnots,
+                aircraft[index].groundSpeed - config.approachDecelerationKnotsPerTick
+            )
         }
 
         if aircraft[index].currentLevel > 0 {
-            aircraft[index].currentLevel = max(0, aircraft[index].currentLevel - 1)
+            aircraft[index].currentLevel = max(0, aircraft[index].currentLevel - config.approachDescentFLPerTick)
             aircraft[index].trend = aircraft[index].currentLevel == 0 ? .level : .descend
         }
 
         let runwayThreshold = geometry.runwayThreshold
         let distanceToThreshold = hypot(position.x - runwayThreshold.x, position.y - runwayThreshold.y)
-        if distanceToThreshold < 26, aircraft[index].currentLevel == 0, aircraft[index].groundSpeed <= 150 {
+        if distanceToThreshold < config.landing.maxDistanceToThresholdPixels,
+           aircraft[index].currentLevel == 0,
+           aircraft[index].groundSpeed <= config.landing.maxTouchdownSpeedKnots {
             aircraft[index].isLanded = true
             aircraft[index].groundSpeed = 0
             aircraft[index].trend = .level
