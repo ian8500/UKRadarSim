@@ -166,8 +166,9 @@ struct TerrainSector {
 }
 
 enum AirportMapCatalog {
-    /// Layer values transcribed from UK AIP approach/control chart conventions
-    /// to provide a simulator-friendly sector picture.
+    /// Stylised sector geometry tuned for gameplay readability.
+    /// These coordinates are intentionally simplified and are **not**
+    /// authoritative aeronautical chart data.
     static func geometry(for airportICAO: String) -> RadarGeometry {
         switch airportICAO {
         case "EGLL": return heathrow
@@ -183,24 +184,39 @@ enum AirportMapCatalog {
         centerlineStartFraction: CGPoint(x: 0.10, y: 0.54),
         runwayThresholdFraction: CGPoint(x: 0.76, y: 0.50),
         controlledAirspacePolygonFractions: [
-            CGPoint(x: 0.06, y: 0.16), CGPoint(x: 0.40, y: 0.10), CGPoint(x: 0.84, y: 0.20),
-            CGPoint(x: 0.92, y: 0.56), CGPoint(x: 0.68, y: 0.88), CGPoint(x: 0.20, y: 0.84)
+            CGPoint(x: 0.03, y: 0.20), CGPoint(x: 0.15, y: 0.10), CGPoint(x: 0.42, y: 0.07),
+            CGPoint(x: 0.68, y: 0.12), CGPoint(x: 0.86, y: 0.22), CGPoint(x: 0.95, y: 0.38),
+            CGPoint(x: 0.94, y: 0.58), CGPoint(x: 0.86, y: 0.74), CGPoint(x: 0.72, y: 0.87),
+            CGPoint(x: 0.48, y: 0.93), CGPoint(x: 0.24, y: 0.90), CGPoint(x: 0.08, y: 0.78),
+            CGPoint(x: 0.02, y: 0.56), CGPoint(x: 0.02, y: 0.36)
         ],
         controlledAirspaceShelves: [
             AirspaceShelf(
                 polygonFractions: [
-                    CGPoint(x: 0.12, y: 0.24), CGPoint(x: 0.46, y: 0.20), CGPoint(x: 0.75, y: 0.30),
-                    CGPoint(x: 0.72, y: 0.62), CGPoint(x: 0.34, y: 0.70), CGPoint(x: 0.13, y: 0.54)
+                    CGPoint(x: 0.10, y: 0.28), CGPoint(x: 0.28, y: 0.20), CGPoint(x: 0.52, y: 0.18),
+                    CGPoint(x: 0.72, y: 0.26), CGPoint(x: 0.81, y: 0.40), CGPoint(x: 0.79, y: 0.58),
+                    CGPoint(x: 0.66, y: 0.70), CGPoint(x: 0.44, y: 0.74), CGPoint(x: 0.22, y: 0.68),
+                    CGPoint(x: 0.10, y: 0.56)
                 ],
                 floorLabel: "2500",
                 ceilingLabel: "FL195"
             ),
             AirspaceShelf(
                 polygonFractions: [
-                    CGPoint(x: 0.28, y: 0.30), CGPoint(x: 0.58, y: 0.28), CGPoint(x: 0.69, y: 0.46),
-                    CGPoint(x: 0.58, y: 0.66), CGPoint(x: 0.30, y: 0.62), CGPoint(x: 0.22, y: 0.43)
+                    CGPoint(x: 0.24, y: 0.34), CGPoint(x: 0.42, y: 0.30), CGPoint(x: 0.60, y: 0.32),
+                    CGPoint(x: 0.70, y: 0.42), CGPoint(x: 0.68, y: 0.56), CGPoint(x: 0.58, y: 0.66),
+                    CGPoint(x: 0.40, y: 0.68), CGPoint(x: 0.26, y: 0.58), CGPoint(x: 0.20, y: 0.46)
                 ],
                 floorLabel: "3500",
+                ceilingLabel: "FL195"
+            ),
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.36, y: 0.40), CGPoint(x: 0.50, y: 0.38), CGPoint(x: 0.60, y: 0.44),
+                    CGPoint(x: 0.60, y: 0.56), CGPoint(x: 0.50, y: 0.62), CGPoint(x: 0.38, y: 0.58),
+                    CGPoint(x: 0.32, y: 0.48)
+                ],
+                floorLabel: "4500",
                 ceilingLabel: "FL195"
             )
         ],
@@ -256,24 +272,40 @@ enum AirportMapCatalog {
         centerlineStartFraction: CGPoint(x: 0.08, y: 0.50),
         runwayThresholdFraction: CGPoint(x: 0.73, y: 0.50),
         controlledAirspacePolygonFractions: [
-            CGPoint(x: 0.03, y: 0.20), CGPoint(x: 0.46, y: 0.06), CGPoint(x: 0.90, y: 0.20),
-            CGPoint(x: 0.96, y: 0.52), CGPoint(x: 0.74, y: 0.86), CGPoint(x: 0.22, y: 0.88)
+            CGPoint(x: 0.02, y: 0.24), CGPoint(x: 0.16, y: 0.12), CGPoint(x: 0.40, y: 0.06),
+            CGPoint(x: 0.64, y: 0.08), CGPoint(x: 0.84, y: 0.18), CGPoint(x: 0.95, y: 0.34),
+            CGPoint(x: 0.97, y: 0.52), CGPoint(x: 0.91, y: 0.70), CGPoint(x: 0.78, y: 0.84),
+            CGPoint(x: 0.56, y: 0.92), CGPoint(x: 0.30, y: 0.93), CGPoint(x: 0.12, y: 0.86),
+            CGPoint(x: 0.04, y: 0.72), CGPoint(x: 0.01, y: 0.52), CGPoint(x: 0.01, y: 0.36)
         ],
         controlledAirspaceShelves: [
             AirspaceShelf(
                 polygonFractions: [
-                    CGPoint(x: 0.14, y: 0.24), CGPoint(x: 0.52, y: 0.14), CGPoint(x: 0.79, y: 0.25),
-                    CGPoint(x: 0.76, y: 0.63), CGPoint(x: 0.32, y: 0.72), CGPoint(x: 0.12, y: 0.50)
+                    CGPoint(x: 0.12, y: 0.28), CGPoint(x: 0.30, y: 0.18), CGPoint(x: 0.52, y: 0.14),
+                    CGPoint(x: 0.72, y: 0.18), CGPoint(x: 0.82, y: 0.30), CGPoint(x: 0.84, y: 0.48),
+                    CGPoint(x: 0.78, y: 0.62), CGPoint(x: 0.60, y: 0.72), CGPoint(x: 0.38, y: 0.76),
+                    CGPoint(x: 0.18, y: 0.66), CGPoint(x: 0.10, y: 0.50)
                 ],
                 floorLabel: "2500",
                 ceilingLabel: "FL195"
             ),
             AirspaceShelf(
                 polygonFractions: [
-                    CGPoint(x: 0.26, y: 0.30), CGPoint(x: 0.56, y: 0.24), CGPoint(x: 0.69, y: 0.47),
-                    CGPoint(x: 0.54, y: 0.67), CGPoint(x: 0.27, y: 0.58), CGPoint(x: 0.18, y: 0.44)
+                    CGPoint(x: 0.22, y: 0.34), CGPoint(x: 0.38, y: 0.28), CGPoint(x: 0.56, y: 0.26),
+                    CGPoint(x: 0.68, y: 0.34), CGPoint(x: 0.72, y: 0.48), CGPoint(x: 0.66, y: 0.62),
+                    CGPoint(x: 0.52, y: 0.70), CGPoint(x: 0.34, y: 0.66), CGPoint(x: 0.22, y: 0.54),
+                    CGPoint(x: 0.18, y: 0.44)
                 ],
                 floorLabel: "3500",
+                ceilingLabel: "FL195"
+            ),
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.34, y: 0.40), CGPoint(x: 0.48, y: 0.36), CGPoint(x: 0.60, y: 0.40),
+                    CGPoint(x: 0.64, y: 0.50), CGPoint(x: 0.58, y: 0.60), CGPoint(x: 0.44, y: 0.64),
+                    CGPoint(x: 0.34, y: 0.56), CGPoint(x: 0.30, y: 0.46)
+                ],
+                floorLabel: "4500",
                 ceilingLabel: "FL195"
             )
         ],
@@ -329,24 +361,39 @@ enum AirportMapCatalog {
         centerlineStartFraction: CGPoint(x: 0.20, y: 0.26),
         runwayThresholdFraction: CGPoint(x: 0.70, y: 0.66),
         controlledAirspacePolygonFractions: [
-            CGPoint(x: 0.08, y: 0.10), CGPoint(x: 0.62, y: 0.08), CGPoint(x: 0.91, y: 0.35),
-            CGPoint(x: 0.90, y: 0.76), CGPoint(x: 0.50, y: 0.90), CGPoint(x: 0.14, y: 0.72)
+            CGPoint(x: 0.04, y: 0.14), CGPoint(x: 0.22, y: 0.08), CGPoint(x: 0.48, y: 0.06),
+            CGPoint(x: 0.70, y: 0.10), CGPoint(x: 0.86, y: 0.20), CGPoint(x: 0.94, y: 0.36),
+            CGPoint(x: 0.95, y: 0.56), CGPoint(x: 0.90, y: 0.74), CGPoint(x: 0.80, y: 0.84),
+            CGPoint(x: 0.62, y: 0.92), CGPoint(x: 0.38, y: 0.92), CGPoint(x: 0.20, y: 0.84),
+            CGPoint(x: 0.08, y: 0.70), CGPoint(x: 0.03, y: 0.50), CGPoint(x: 0.03, y: 0.30)
         ],
         controlledAirspaceShelves: [
             AirspaceShelf(
                 polygonFractions: [
-                    CGPoint(x: 0.16, y: 0.20), CGPoint(x: 0.58, y: 0.19), CGPoint(x: 0.78, y: 0.38),
-                    CGPoint(x: 0.74, y: 0.70), CGPoint(x: 0.41, y: 0.78), CGPoint(x: 0.20, y: 0.58)
+                    CGPoint(x: 0.14, y: 0.24), CGPoint(x: 0.32, y: 0.18), CGPoint(x: 0.54, y: 0.18),
+                    CGPoint(x: 0.70, y: 0.24), CGPoint(x: 0.80, y: 0.36), CGPoint(x: 0.82, y: 0.52),
+                    CGPoint(x: 0.76, y: 0.66), CGPoint(x: 0.62, y: 0.76), CGPoint(x: 0.44, y: 0.80),
+                    CGPoint(x: 0.24, y: 0.72), CGPoint(x: 0.14, y: 0.58)
                 ],
                 floorLabel: "3000",
                 ceilingLabel: "FL195"
             ),
             AirspaceShelf(
                 polygonFractions: [
-                    CGPoint(x: 0.26, y: 0.30), CGPoint(x: 0.53, y: 0.31), CGPoint(x: 0.65, y: 0.46),
-                    CGPoint(x: 0.59, y: 0.66), CGPoint(x: 0.33, y: 0.65), CGPoint(x: 0.23, y: 0.49)
+                    CGPoint(x: 0.24, y: 0.34), CGPoint(x: 0.38, y: 0.32), CGPoint(x: 0.52, y: 0.34),
+                    CGPoint(x: 0.62, y: 0.42), CGPoint(x: 0.64, y: 0.54), CGPoint(x: 0.58, y: 0.66),
+                    CGPoint(x: 0.44, y: 0.70), CGPoint(x: 0.30, y: 0.64), CGPoint(x: 0.22, y: 0.52)
                 ],
                 floorLabel: "4500",
+                ceilingLabel: "FL195"
+            ),
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.34, y: 0.40), CGPoint(x: 0.46, y: 0.40), CGPoint(x: 0.56, y: 0.46),
+                    CGPoint(x: 0.58, y: 0.56), CGPoint(x: 0.52, y: 0.64), CGPoint(x: 0.40, y: 0.66),
+                    CGPoint(x: 0.30, y: 0.58), CGPoint(x: 0.28, y: 0.48)
+                ],
+                floorLabel: "5500",
                 ceilingLabel: "FL195"
             )
         ],
@@ -395,24 +442,39 @@ enum AirportMapCatalog {
         centerlineStartFraction: CGPoint(x: 0.20, y: 0.28),
         runwayThresholdFraction: CGPoint(x: 0.71, y: 0.64),
         controlledAirspacePolygonFractions: [
-            CGPoint(x: 0.08, y: 0.12), CGPoint(x: 0.54, y: 0.08), CGPoint(x: 0.90, y: 0.26),
-            CGPoint(x: 0.93, y: 0.70), CGPoint(x: 0.58, y: 0.90), CGPoint(x: 0.18, y: 0.78)
+            CGPoint(x: 0.05, y: 0.14), CGPoint(x: 0.24, y: 0.09), CGPoint(x: 0.48, y: 0.08),
+            CGPoint(x: 0.68, y: 0.12), CGPoint(x: 0.84, y: 0.22), CGPoint(x: 0.92, y: 0.36),
+            CGPoint(x: 0.94, y: 0.56), CGPoint(x: 0.90, y: 0.74), CGPoint(x: 0.80, y: 0.86),
+            CGPoint(x: 0.64, y: 0.92), CGPoint(x: 0.42, y: 0.92), CGPoint(x: 0.24, y: 0.86),
+            CGPoint(x: 0.10, y: 0.74), CGPoint(x: 0.04, y: 0.56), CGPoint(x: 0.04, y: 0.34)
         ],
         controlledAirspaceShelves: [
             AirspaceShelf(
                 polygonFractions: [
-                    CGPoint(x: 0.16, y: 0.22), CGPoint(x: 0.56, y: 0.20), CGPoint(x: 0.76, y: 0.36),
-                    CGPoint(x: 0.74, y: 0.70), CGPoint(x: 0.40, y: 0.80), CGPoint(x: 0.18, y: 0.56)
+                    CGPoint(x: 0.14, y: 0.24), CGPoint(x: 0.30, y: 0.20), CGPoint(x: 0.52, y: 0.20),
+                    CGPoint(x: 0.70, y: 0.26), CGPoint(x: 0.80, y: 0.38), CGPoint(x: 0.82, y: 0.54),
+                    CGPoint(x: 0.78, y: 0.68), CGPoint(x: 0.66, y: 0.78), CGPoint(x: 0.48, y: 0.82),
+                    CGPoint(x: 0.28, y: 0.74), CGPoint(x: 0.16, y: 0.58)
                 ],
                 floorLabel: "3500",
                 ceilingLabel: "FL195"
             ),
             AirspaceShelf(
                 polygonFractions: [
-                    CGPoint(x: 0.24, y: 0.34), CGPoint(x: 0.52, y: 0.34), CGPoint(x: 0.64, y: 0.48),
-                    CGPoint(x: 0.58, y: 0.68), CGPoint(x: 0.32, y: 0.68), CGPoint(x: 0.22, y: 0.50)
+                    CGPoint(x: 0.24, y: 0.36), CGPoint(x: 0.38, y: 0.34), CGPoint(x: 0.52, y: 0.36),
+                    CGPoint(x: 0.62, y: 0.44), CGPoint(x: 0.64, y: 0.56), CGPoint(x: 0.58, y: 0.68),
+                    CGPoint(x: 0.44, y: 0.72), CGPoint(x: 0.30, y: 0.66), CGPoint(x: 0.22, y: 0.54)
                 ],
                 floorLabel: "4500",
+                ceilingLabel: "FL195"
+            ),
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.34, y: 0.42), CGPoint(x: 0.46, y: 0.42), CGPoint(x: 0.56, y: 0.48),
+                    CGPoint(x: 0.58, y: 0.58), CGPoint(x: 0.52, y: 0.66), CGPoint(x: 0.40, y: 0.68),
+                    CGPoint(x: 0.30, y: 0.60), CGPoint(x: 0.28, y: 0.50)
+                ],
+                floorLabel: "5500",
                 ceilingLabel: "FL195"
             )
         ],
