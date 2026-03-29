@@ -36,10 +36,10 @@ struct Aircraft: Identifiable {
     var selectedLevel: Int
     var trend: VerticalTrend
 
+    var aircraftType: String
     var destination: String
     var isInbound: Bool
     var approachCaptured: Bool = false
-    var autoLandingActive: Bool = false
     var isLanded: Bool = false
 }
 
@@ -83,5 +83,61 @@ struct EFPSStrip: Identifiable {
             return "\(selectedLevel * 100)FT"
         }
         return "FL\(selectedLevel)"
+    }
+}
+
+struct RadarGeometry {
+    let worldSize: CGSize
+    let approachCourseHeading: Double
+    let centerlineStartFraction: CGPoint
+    let runwayThresholdFraction: CGPoint
+    let controlledAirspacePolygonFractions: [CGPoint]
+    let wrapInset: CGFloat
+
+    static let `default` = RadarGeometry(
+        worldSize: CGSize(width: 1000, height: 800),
+        approachCourseHeading: 34.5,
+        centerlineStartFraction: CGPoint(x: 0.18, y: 0.72),
+        runwayThresholdFraction: CGPoint(x: 0.79, y: 0.29),
+        controlledAirspacePolygonFractions: [
+            CGPoint(x: 0.15, y: 0.78),
+            CGPoint(x: 0.28, y: 0.18),
+            CGPoint(x: 0.72, y: 0.12),
+            CGPoint(x: 0.88, y: 0.48),
+            CGPoint(x: 0.70, y: 0.86),
+            CGPoint(x: 0.22, y: 0.88)
+        ],
+        wrapInset: 100
+    )
+
+    var centerlineStart: CGPoint {
+        point(inWorldFromFraction: centerlineStartFraction)
+    }
+
+    var runwayThreshold: CGPoint {
+        point(inWorldFromFraction: runwayThresholdFraction)
+    }
+
+    var wrapBounds: CGRect {
+        CGRect(
+            x: -wrapInset,
+            y: -wrapInset,
+            width: worldSize.width + (wrapInset * 2),
+            height: worldSize.height + (wrapInset * 2)
+        )
+    }
+
+    func point(inWorldFromFraction fraction: CGPoint) -> CGPoint {
+        CGPoint(x: fraction.x * worldSize.width, y: fraction.y * worldSize.height)
+    }
+
+    func point(inViewFromWorld worldPoint: CGPoint, viewSize: CGSize) -> CGPoint {
+        let xScale = viewSize.width / worldSize.width
+        let yScale = viewSize.height / worldSize.height
+        return CGPoint(x: worldPoint.x * xScale, y: worldPoint.y * yScale)
+    }
+
+    func point(inViewFromFraction fraction: CGPoint, viewSize: CGSize) -> CGPoint {
+        point(inViewFromWorld: point(inWorldFromFraction: fraction), viewSize: viewSize)
     }
 }
