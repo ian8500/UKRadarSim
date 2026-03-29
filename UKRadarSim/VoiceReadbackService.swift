@@ -71,7 +71,8 @@ final class VoiceReadbackService {
             ? changedFields.contains(.speed)
             : strip.lastIssuedSpeed != strip.selectedSpeed
         if includeSpeed && strip.lastIssuedSpeed != strip.selectedSpeed {
-            segments.append("reduce speed \(digitWise(strip.selectedSpeed)) knots")
+            let speedVerb = strip.selectedSpeed < strip.lastIssuedSpeed ? "reduce" : "increase"
+            segments.append("\(speedVerb) speed \(digitWise(strip.selectedSpeed)) knots")
         }
 
         let includeApproach = useExplicitChanges
