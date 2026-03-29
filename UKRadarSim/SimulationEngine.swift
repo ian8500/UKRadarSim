@@ -12,6 +12,7 @@ enum InstructionChange: Hashable {
 class SimulationEngine: ObservableObject {
     @Published var aircraft: [Aircraft] = []
     @Published var strips: [EFPSStrip] = []
+    @Published private(set) var isPaused = false
 
     private let truthUpdateInterval: CGFloat = 0.1
     private let radarUpdateInterval: CGFloat = 6.0
@@ -98,6 +99,7 @@ class SimulationEngine: ObservableObject {
 
             remainingStep -= truthDelta
         }
+        isPaused = false
     }
 
     private func updateAircraftTruth(dt: CGFloat) {
