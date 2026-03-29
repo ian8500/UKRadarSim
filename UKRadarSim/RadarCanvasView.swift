@@ -23,9 +23,8 @@ struct RadarCanvasView: View {
                     radarBackground
                     radarMap(in: geo.size)
                     vectorLayer(in: geo.size)
-                    aircraftLayer(in: geo.size, zoomScale: effectiveZoom)
+                    aircraftLayer(in: geo.size)
                 }
-                .scaleEffect(effectiveZoom)
                 .gesture(
                     MagnificationGesture()
                         .updating($pinchScale) { value, state, _ in
@@ -142,6 +141,7 @@ struct RadarCanvasView: View {
             MapOverlayRenderer(
                 geometry: geometry,
                 size: size,
+                zoomScale: effectiveZoom,
                 showsControlledAirspaceBase: showsControlledAirspaceBase,
                 showsTerrainMap: showsTerrainMap
             )
@@ -155,6 +155,7 @@ struct RadarCanvasView: View {
         let renderer = ImageRenderer(content: MapOverlayRenderer(
             geometry: geometry,
             size: size,
+            zoomScale: 1,
             showsControlledAirspaceBase: showsControlledAirspaceBase,
             showsTerrainMap: showsTerrainMap
         ))
@@ -182,8 +183,8 @@ struct RadarCanvasView: View {
                 let worldEnd = vectorEndpoint(for: item, lookaheadSeconds: vectorSetting.lookaheadSeconds)
 
                 var path = Path()
-                path.move(to: geometry.point(inViewFromWorld: worldStart, viewSize: size))
-                path.addLine(to: geometry.point(inViewFromWorld: worldEnd, viewSize: size))
+                path.move(to: zoomedPoint(inViewFromWorld: worldStart, viewSize: size))
+                path.addLine(to: zoomedPoint(inViewFromWorld: worldEnd, viewSize: size))
                 context.stroke(path, with: .color(Color.cyan.opacity(0.55)), lineWidth: 1)
             }
         }
@@ -191,21 +192,29 @@ struct RadarCanvasView: View {
         .allowsHitTesting(false)
     }
 
-    private func aircraftLayer(in size: CGSize, zoomScale: CGFloat) -> some View {
+    private func aircraftLayer(in size: CGSize) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(aircraft) { aircraft in
                 AircraftTrackView(
                     aircraft: aircraft,
-                    displayPoint: geometry.point(
+                    displayPoint: zoomedPoint(
                         inViewFromWorld: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
                         viewSize: size
                     ),
-                    historyPoints: aircraft.historyDots.map { geometry.point(inViewFromWorld: $0, viewSize: size) },
-                    zoomScale: zoomScale
+                    historyPoints: aircraft.historyDots.map { zoomedPoint(inViewFromWorld: $0, viewSize: size) }
                 )
             }
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+
+    private func zoomedPoint(inViewFromWorld worldPoint: CGPoint, viewSize: CGSize) -> CGPoint {
+        let basePoint = geometry.point(inViewFromWorld: worldPoint, viewSize: viewSize)
+        let viewCenter = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+        return CGPoint(
+            x: viewCenter.x + ((basePoint.x - viewCenter.x) * effectiveZoom),
+            y: viewCenter.y + ((basePoint.y - viewCenter.y) * effectiveZoom)
+        )
     }
 
     private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
@@ -221,6 +230,7 @@ struct RadarCanvasView: View {
 private struct MapOverlayRenderer: View {
     let geometry: RadarGeometry
     let size: CGSize
+    let zoomScale: CGFloat
     let showsControlledAirspaceBase: Bool
     let showsTerrainMap: Bool
 
@@ -246,9 +256,9 @@ private struct MapOverlayRenderer: View {
                 for sector in geometry.terrainSectors {
                     var terrainPath = Path()
                     if let first = sector.polygonFractions.first {
-                        terrainPath.move(to: geometry.point(inViewFromFraction: first, viewSize: size))
+                        terrainPath.move(to: zoomedPoint(inViewFromFraction: first))
                         for point in sector.polygonFractions.dropFirst() {
-                            terrainPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                            terrainPath.addLine(to: zoomedPoint(inViewFromFraction: point))
                         }
                         terrainPath.closeSubpath()
                     }
@@ -257,7 +267,7 @@ private struct MapOverlayRenderer: View {
                     context.stroke(terrainPath, with: .color(Color.orange.opacity(0.30)), lineWidth: 0.8)
                     if !sector.polygonFractions.isEmpty {
                         let centroid = centroid(for: sector.polygonFractions)
-                        let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
+                        let point = zoomedPoint(inViewFromFraction: centroid)
                         let text = Text(sector.minimumAltitudeLabel)
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                             .foregroundColor(.orange.opacity(0.95))
@@ -268,9 +278,9 @@ private struct MapOverlayRenderer: View {
 
             var ctr = Path()
             if let firstPoint = geometry.controlledAirspacePolygonFractions.first {
-                ctr.move(to: geometry.point(inViewFromFraction: firstPoint, viewSize: size))
+                ctr.move(to: zoomedPoint(inViewFromFraction: firstPoint))
                 for point in geometry.controlledAirspacePolygonFractions.dropFirst() {
-                    ctr.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                    ctr.addLine(to: zoomedPoint(inViewFromFraction: point))
                 }
                 ctr.closeSubpath()
             }
@@ -279,9 +289,9 @@ private struct MapOverlayRenderer: View {
             for shelf in geometry.controlledAirspaceShelves {
                 var shelfPath = Path()
                 if let firstPoint = shelf.polygonFractions.first {
-                    shelfPath.move(to: geometry.point(inViewFromFraction: firstPoint, viewSize: size))
+                    shelfPath.move(to: zoomedPoint(inViewFromFraction: firstPoint))
                     for point in shelf.polygonFractions.dropFirst() {
-                        shelfPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                        shelfPath.addLine(to: zoomedPoint(inViewFromFraction: point))
                     }
                     shelfPath.closeSubpath()
                 }
@@ -295,7 +305,7 @@ private struct MapOverlayRenderer: View {
 
                 if showsControlledAirspaceBase, !shelf.polygonFractions.isEmpty {
                     let centroid = centroid(for: shelf.polygonFractions)
-                    let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
+                    let point = zoomedPoint(inViewFromFraction: centroid)
                     let label = "\(shelf.floorLabel)-\(shelf.ceilingLabel)"
                     let text = Text(label)
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
@@ -307,17 +317,17 @@ private struct MapOverlayRenderer: View {
             for airway in geometry.surroundingAirways {
                 guard let first = airway.waypoints.first else { continue }
                 var airwayPath = Path()
-                airwayPath.move(to: geometry.point(inViewFromFraction: first, viewSize: size))
+                airwayPath.move(to: zoomedPoint(inViewFromFraction: first))
                 for waypoint in airway.waypoints.dropFirst() {
-                    airwayPath.addLine(to: geometry.point(inViewFromFraction: waypoint, viewSize: size))
+                    airwayPath.addLine(to: zoomedPoint(inViewFromFraction: waypoint))
                 }
 
                 context.stroke(airwayPath, with: .color(.mint.opacity(0.45)), style: StrokeStyle(lineWidth: 0.8, dash: [3, 6]))
 
             }
 
-            let thresholdPoint = geometry.point(inViewFromWorld: geometry.runwayThreshold, viewSize: size)
-            let tenNmPoint = geometry.point(inViewFromWorld: geometry.centerlineStart, viewSize: size)
+            let thresholdPoint = zoomedPoint(inViewFromWorld: geometry.runwayThreshold)
+            let tenNmPoint = zoomedPoint(inViewFromWorld: geometry.centerlineStart)
 
             var centerline = Path()
             centerline.move(to: thresholdPoint)
@@ -377,13 +387,25 @@ private struct MapOverlayRenderer: View {
         }
         return CGPoint(x: sums.x / CGFloat(polygon.count), y: sums.y / CGFloat(polygon.count))
     }
+
+    private func zoomedPoint(inViewFromWorld worldPoint: CGPoint) -> CGPoint {
+        let basePoint = geometry.point(inViewFromWorld: worldPoint, viewSize: size)
+        let viewCenter = CGPoint(x: size.width / 2, y: size.height / 2)
+        return CGPoint(
+            x: viewCenter.x + ((basePoint.x - viewCenter.x) * zoomScale),
+            y: viewCenter.y + ((basePoint.y - viewCenter.y) * zoomScale)
+        )
+    }
+
+    private func zoomedPoint(inViewFromFraction fraction: CGPoint) -> CGPoint {
+        zoomedPoint(inViewFromWorld: geometry.point(inWorldFromFraction: fraction))
+    }
 }
 
 struct AircraftTrackView: View {
     let aircraft: Aircraft
     let displayPoint: CGPoint
     let historyPoints: [CGPoint]
-    let zoomScale: CGFloat
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -392,25 +414,21 @@ struct AircraftTrackView: View {
                     .fill(Color.white.opacity(dotOpacity(for: index)))
                     .frame(width: 4, height: 4)
                     .position(x: point.x, y: point.y)
-                    .scaleEffect(1 / zoomScale)
             }
 
             Circle()
                 .fill(Color.white)
                 .frame(width: 6, height: 6)
                 .position(x: displayPoint.x, y: displayPoint.y)
-                .scaleEffect(1 / zoomScale)
 
             Path { path in
                 path.move(to: CGPoint(x: displayPoint.x + 4, y: displayPoint.y - 4))
                 path.addLine(to: CGPoint(x: displayPoint.x + 26, y: displayPoint.y - 22))
             }
             .stroke(Color.white.opacity(0.85), lineWidth: 1)
-            .scaleEffect(1 / zoomScale)
 
             GatwickStyleLabel(aircraft: aircraft)
                 .position(x: displayPoint.x + 92, y: displayPoint.y - 42)
-                .scaleEffect(1 / zoomScale)
         }
     }
 
