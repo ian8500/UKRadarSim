@@ -3,6 +3,7 @@ import SwiftUI
 struct RadarCanvasView: View {
     let aircraft: [Aircraft]
     let vectorSetting: VectorSetting
+    let simConfig: SimConfig
 
     var body: some View {
         GeometryReader { geo in
@@ -113,8 +114,7 @@ struct RadarCanvasView: View {
 
     private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
         let headingRad = CGFloat(aircraft.heading * .pi / 180.0)
-        let speedScale: CGFloat = 0.02
-        let distance = CGFloat(Double(aircraft.groundSpeed) * lookaheadSeconds) * speedScale
+        let distance = CGFloat(Double(aircraft.groundSpeed) * lookaheadSeconds) * simConfig.pixelsPerKnot
 
         return CGPoint(
             x: aircraft.displayX + cos(headingRad) * distance,

@@ -8,7 +8,8 @@ struct MainRadarView: View {
         VStack(spacing: 0) {
             RadarCanvasView(
                 aircraft: sim.aircraft,
-                vectorSetting: appState.vectorSetting
+                vectorSetting: appState.vectorSetting,
+                simConfig: sim.config
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
