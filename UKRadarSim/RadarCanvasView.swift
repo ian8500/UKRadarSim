@@ -187,21 +187,25 @@ struct RadarCanvasView: View {
                 context.stroke(path, with: .color(Color.cyan.opacity(0.55)), lineWidth: 1)
             }
         }
+        .frame(width: size.width, height: size.height)
         .allowsHitTesting(false)
     }
 
     private func aircraftLayer(in size: CGSize, zoomScale: CGFloat) -> some View {
-        ForEach(aircraft) { aircraft in
-            AircraftTrackView(
-                aircraft: aircraft,
-                displayPoint: geometry.point(
-                    inViewFromWorld: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
-                    viewSize: size
-                ),
-                historyPoints: aircraft.historyDots.map { geometry.point(inViewFromWorld: $0, viewSize: size) },
-                zoomScale: zoomScale
-            )
+        ZStack(alignment: .topLeading) {
+            ForEach(aircraft) { aircraft in
+                AircraftTrackView(
+                    aircraft: aircraft,
+                    displayPoint: geometry.point(
+                        inViewFromWorld: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
+                        viewSize: size
+                    ),
+                    historyPoints: aircraft.historyDots.map { geometry.point(inViewFromWorld: $0, viewSize: size) },
+                    zoomScale: zoomScale
+                )
+            }
         }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 
     private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
