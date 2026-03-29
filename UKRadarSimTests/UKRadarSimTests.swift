@@ -7,7 +7,7 @@ struct UKRadarSimTests {
     private let startupScenario = ScenarioLibrary.default
 
     @Test func radarDisplayUpdatesOnlyOnRadarTick() {
-        let engine = SimulationEngine(startupScenario: startupScenario)
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
 
         let baselineDisplay = CGPoint(x: engine.aircraft[0].displayX, y: engine.aircraft[0].displayY)
@@ -28,7 +28,7 @@ struct UKRadarSimTests {
     }
 
     @Test func headingTargetConvergesGradually() {
-        let engine = SimulationEngine(startupScenario: startupScenario)
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
         #expect(!engine.strips.isEmpty)
 
@@ -47,7 +47,7 @@ struct UKRadarSimTests {
     }
 
     @Test func levelOffOccursWhenSelectedLevelReached() {
-        let engine = SimulationEngine(startupScenario: startupScenario)
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
         #expect(!engine.strips.isEmpty)
 
@@ -102,77 +102,125 @@ struct UKRadarSimTests {
         #expect(instruction == ["reduce speed one eight zero knots"])
     }
 
-    @Test func intentAwarePredictorUsesSelectedHeading() {
-        let predictor = IntentAwareTrackPredictor()
-        let aircraft = makeAircraft(heading: 90, groundSpeed: 220, currentLevel: 120)
-        let neutralIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 220, selectedLevel: 120)
-        let turnIntent = TrackIntent(selectedHeading: 180, selectedSpeed: 220, selectedLevel: 120)
+    @Test func aircraftMotionServiceMovesHeadingTowardTarget() {
+        let service = AircraftMotionService()
+        var aircraft = makeAircraft(heading: 10, groundSpeed: 220, currentLevel: 80, selectedLevel: 80)
+        let strip = makeStrip(selectedHeading: 100, selectedSpeed: 220, selectedLevel: 80)
+        var verticalProgress = 0.0
 
-        let neutralProjection = predictor.predictedState(
-            for: aircraft,
-            intent: neutralIntent,
-            lookaheadSeconds: 60,
-            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
-        )
-        let turnedProjection = predictor.predictedState(
-            for: aircraft,
-            intent: turnIntent,
-            lookaheadSeconds: 60,
-            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
-        )
+        service.applyControllerTargets(to: &aircraft, strip: strip, dt: 1.0, verticalProgress: &verticalProgress)
 
-        #expect(abs(neutralProjection.projectedPosition.x - turnedProjection.projectedPosition.x) > 0.01)
+        #expect(aircraft.heading == 13)
     }
 
-    @Test func intentAwarePredictorUsesSelectedSpeed() {
-        let predictor = IntentAwareTrackPredictor()
-        let aircraft = makeAircraft(heading: 90, groundSpeed: 220, currentLevel: 120)
-        let fastIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 260, selectedLevel: 120)
-        let slowIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 180, selectedLevel: 120)
-
-        let fastProjection = predictor.predictedState(
-            for: aircraft,
-            intent: fastIntent,
-            lookaheadSeconds: 60,
-            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
+    @Test func approachAutomationServiceCapturesAndLands() {
+        let service = ApproachAutomationService()
+        let geometry = RadarGeometry.default
+        var aircraft = makeAircraft(
+            trueX: geometry.runwayThreshold.x,
+            trueY: geometry.runwayThreshold.y,
+            heading: geometry.approachCourseHeading,
+            groundSpeed: 160,
+            currentLevel: 0,
+            selectedLevel: 0,
+            isInbound: true,
+            approachCaptured: false
         )
-        let slowProjection = predictor.predictedState(
-            for: aircraft,
-            intent: slowIntent,
-            lookaheadSeconds: 60,
-            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
-        )
+        let strip = makeStrip(selectedHeading: 0, selectedSpeed: 160, selectedLevel: 0, approachCleared: true)
 
-        #expect(abs(fastProjection.projectedPosition.y - slowProjection.projectedPosition.y) > 0.01)
+        let outcome = service.apply(to: &aircraft, strip: strip, geometry: geometry, dt: 1.0)
+
+        #expect(outcome.didCaptureLocalizer)
+        #expect(outcome.didLand)
+        #expect(aircraft.isLanded)
+        #expect(aircraft.groundSpeed == 0)
     }
 
-    @Test func intentAwarePredictorUsesSelectedLevel() {
-        let predictor = IntentAwareTrackPredictor()
-        let aircraft = makeAircraft(heading: 90, groundSpeed: 220, currentLevel: 120)
-        let climbIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 220, selectedLevel: 140)
-        let descentIntent = TrackIntent(selectedHeading: 90, selectedSpeed: 220, selectedLevel: 100)
+    @Test func conflictDetectionServiceDetectsWarning() {
+        let service = ConflictDetectionService()
+        let first = makeAircraft(callsign: "AAL1", trueX: 10, trueY: 10, currentLevel: 100, selectedLevel: 100)
+        let second = makeAircraft(callsign: "BAW2", trueX: 20, trueY: 20, currentLevel: 105, selectedLevel: 105)
 
-        let climbProjection = predictor.predictedState(
-            for: aircraft,
-            intent: climbIntent,
-            lookaheadSeconds: 10,
-            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
-        )
-        let descentProjection = predictor.predictedState(
-            for: aircraft,
-            intent: descentIntent,
-            lookaheadSeconds: 10,
-            startPosition: CGPoint(x: aircraft.displayX, y: aircraft.displayY)
-        )
+        let conflicts = service.detectConflicts(aircraft: [first, second]) { aircraft, _ in
+            CGPoint(x: aircraft.trueX, y: aircraft.trueY)
+        }
 
-        #expect(climbProjection.projectedLevel > descentProjection.projectedLevel)
+        #expect(conflicts.count == 1)
+        switch conflicts[0].severity {
+        case .warning:
+            #expect(Bool(true))
+        case .advisory:
+            #expect(Bool(false))
+        }
+    }
+
+    @Test func stripSyncServiceCopiesTrackState() {
+        let service = StripSyncService()
+        let aircraft = makeAircraft(heading: 274.6, currentLevel: 90, selectedLevel: 90, approachCaptured: true, isLanded: true)
+        var strip = makeStrip(selectedHeading: 90, selectedSpeed: 220, selectedLevel: 100)
+
+        service.syncStrip(from: aircraft, strip: &strip)
+
+        #expect(strip.currentLevel == 90)
+        #expect(strip.currentHeading == 275)
+        #expect(strip.approachCaptured)
+        #expect(strip.isLanded)
+    }
+
+    @Test func scoringServiceAppliesBonusesAndPenalties() {
+        let service = ScoringService()
+        let conflicts = [
+            ConflictDetectionService.Conflict(callsignPair: "A/B", severity: .warning, message: "x"),
+            ConflictDetectionService.Conflict(callsignPair: "C/D", severity: .advisory, message: "y")
+        ]
+
+        let score = service.computeScore(landedCount: 2, conflicts: conflicts)
+
+        #expect(score == 93)
     }
 
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
 
-    private func makeStrip(selectedHeading: Int, selectedSpeed: Int = 220, lastIssuedSpeed: Int = 220) -> EFPSStrip {
+    private func makeAircraft(
+        callsign: String = "EZY123",
+        trueX: CGFloat = 100,
+        trueY: CGFloat = 100,
+        heading: Double = 90,
+        groundSpeed: Int = 220,
+        currentLevel: Int = 100,
+        selectedLevel: Int = 100,
+        isInbound: Bool = true,
+        approachCaptured: Bool = false,
+        isLanded: Bool = false
+    ) -> Aircraft {
+        Aircraft(
+            callsign: callsign,
+            trueX: trueX,
+            trueY: trueY,
+            displayX: trueX,
+            displayY: trueY,
+            heading: heading,
+            groundSpeed: groundSpeed,
+            currentLevel: currentLevel,
+            selectedLevel: selectedLevel,
+            trend: .level,
+            aircraftType: "A320",
+            destination: "EGKK",
+            isInbound: isInbound,
+            approachCaptured: approachCaptured,
+            isLanded: isLanded
+        )
+    }
+
+    private func makeStrip(
+        selectedHeading: Int,
+        selectedSpeed: Int = 220,
+        selectedLevel: Int = 100,
+        lastIssuedSpeed: Int = 220,
+        approachCleared: Bool = false
+    ) -> EFPSStrip {
         EFPSStrip(
             aircraftID: UUID(),
             callsign: "EZY123",
@@ -180,15 +228,15 @@ struct UKRadarSimTests {
             destination: "EGKK",
             isInbound: true,
             bay: .inbound,
-            selectedLevel: 100,
-            currentLevel: 100,
+            selectedLevel: selectedLevel,
+            currentLevel: selectedLevel,
             selectedHeading: selectedHeading,
             currentHeading: 0,
             selectedSpeed: selectedSpeed,
             approachType: "ILS",
-            approachCleared: false,
+            approachCleared: approachCleared,
             instructionLog: [],
-            lastIssuedLevel: 100,
+            lastIssuedLevel: selectedLevel,
             lastIssuedHeading: 0,
             lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
@@ -211,5 +259,13 @@ struct UKRadarSimTests {
             destination: "EGKK",
             isInbound: true
         )
+    }
+}
+
+private final class MockSimulationStepper: SimulationStepping {
+    private(set) var receivedDeltas: [CGFloat] = []
+
+    func step(dt: CGFloat) {
+        receivedDeltas.append(dt)
     }
 }
