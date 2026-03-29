@@ -2,13 +2,20 @@ import SwiftUI
 
 struct MainRadarView: View {
     @EnvironmentObject private var appState: AppState
-    @StateObject private var sim = SimulationEngine()
+    private let geometry: RadarGeometry
+    @StateObject private var sim: SimulationEngine
+
+    init(geometry: RadarGeometry = .default) {
+        self.geometry = geometry
+        _sim = StateObject(wrappedValue: SimulationEngine(geometry: geometry))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             RadarCanvasView(
                 aircraft: sim.aircraft,
-                vectorSetting: appState.vectorSetting
+                vectorSetting: appState.vectorSetting,
+                geometry: geometry
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 

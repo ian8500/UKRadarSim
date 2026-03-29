@@ -15,12 +15,11 @@ class SimulationEngine: ObservableObject {
 
     private var movementTimer: Timer?
     private var radarTimer: Timer?
-    private let approachCourseHeading: Double = 34.5
-    private let centerlineStart = CGPoint(x: 180, y: 576)
-    private let runwayThreshold = CGPoint(x: 790, y: 232)
+    private let geometry: RadarGeometry
     private var verticalProgressByAircraft: [UUID: Double] = [:]
 
-    init() {
+    init(geometry: RadarGeometry = .default) {
+        self.geometry = geometry
         setupTestAircraft()
         start()
     }
@@ -129,20 +128,21 @@ class SimulationEngine: ObservableObject {
 
     private func wrapAircraftIfNeeded(index: Int) {
         var didWrap = false
-        if aircraft[index].trueX > 1100 {
-            aircraft[index].trueX = -100
+        let wrapBounds = geometry.wrapBounds
+        if aircraft[index].trueX > wrapBounds.maxX {
+            aircraft[index].trueX = wrapBounds.minX
             didWrap = true
         }
-        if aircraft[index].trueX < -100 {
-            aircraft[index].trueX = 1100
+        if aircraft[index].trueX < wrapBounds.minX {
+            aircraft[index].trueX = wrapBounds.maxX
             didWrap = true
         }
-        if aircraft[index].trueY > 900 {
-            aircraft[index].trueY = -100
+        if aircraft[index].trueY > wrapBounds.maxY {
+            aircraft[index].trueY = wrapBounds.minY
             didWrap = true
         }
-        if aircraft[index].trueY < -100 {
-            aircraft[index].trueY = 900
+        if aircraft[index].trueY < wrapBounds.minY {
+            aircraft[index].trueY = wrapBounds.maxY
             didWrap = true
         }
 
@@ -287,8 +287,8 @@ class SimulationEngine: ObservableObject {
         }
 
         let position = CGPoint(x: aircraft[index].trueX, y: aircraft[index].trueY)
-        let distanceToLocalizer = distanceFromPoint(position, toSegmentFrom: centerlineStart, to: runwayThreshold)
-        let headingError = angularDifference(aircraft[index].heading, approachCourseHeading)
+        let distanceToLocalizer = distanceFromPoint(position, toSegmentFrom: geometry.centerlineStart, to: geometry.runwayThreshold)
+        let headingError = angularDifference(aircraft[index].heading, geometry.approachCourseHeading)
 
         if !aircraft[index].approachCaptured, distanceToLocalizer < 24, headingError < 35 {
             aircraft[index].approachCaptured = true
@@ -299,7 +299,7 @@ class SimulationEngine: ObservableObject {
             return
         }
 
-        let newHeading = moveAngle(aircraft[index].heading, toward: approachCourseHeading, maxDelta: Double(dt) * 8)
+        let newHeading = moveAngle(aircraft[index].heading, toward: geometry.approachCourseHeading, maxDelta: Double(dt) * 8)
         aircraft[index].heading = newHeading
 
         if aircraft[index].groundSpeed > 145 {
@@ -311,6 +311,7 @@ class SimulationEngine: ObservableObject {
             aircraft[index].trend = aircraft[index].currentLevel == 0 ? .level : .descend
         }
 
+        let runwayThreshold = geometry.runwayThreshold
         let distanceToThreshold = hypot(position.x - runwayThreshold.x, position.y - runwayThreshold.y)
         if distanceToThreshold < 26, aircraft[index].currentLevel == 0, aircraft[index].groundSpeed <= 150 {
             aircraft[index].isLanded = true
