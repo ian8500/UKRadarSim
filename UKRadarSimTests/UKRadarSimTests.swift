@@ -64,6 +64,33 @@ struct UKRadarSimTests {
         }
     }
 
+    @Test func levelReadbackUsesClimbWording() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedLevel: 120, currentLevel: 100, lastIssuedLevel: 100)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.level])
+
+        #expect(instruction == ["climb flight level one two zero"])
+    }
+
+    @Test func levelReadbackUsesDescendWording() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedLevel: 80, currentLevel: 100, lastIssuedLevel: 100)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.level])
+
+        #expect(instruction == ["descend flight level eight zero"])
+    }
+
+    @Test func levelReadbackUsesMaintainWording() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedLevel: 100, currentLevel: 100, lastIssuedLevel: 120)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.level])
+
+        #expect(instruction == ["maintain flight level one zero zero"])
+    }
+
     @Test func headingReadbackIncludesDegreesForHeadingsEndingInZero() {
         let service = VoiceReadbackService.shared
         let strip = makeStrip(selectedHeading: 30)
@@ -84,7 +111,7 @@ struct UKRadarSimTests {
 
     @Test func speedReadbackUsesIncreaseWhenSpeedGoesUp() {
         let service = VoiceReadbackService.shared
-        let strip = makeStrip(selectedHeading: 90, selectedSpeed: 250, lastIssuedSpeed: 220)
+        let strip = makeStrip(selectedSpeed: 250, lastIssuedSpeed: 220)
 
         let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.speed])
 
@@ -93,34 +120,60 @@ struct UKRadarSimTests {
 
     @Test func speedReadbackUsesReduceWhenSpeedGoesDown() {
         let service = VoiceReadbackService.shared
-        let strip = makeStrip(selectedHeading: 90, selectedSpeed: 180, lastIssuedSpeed: 220)
+        let strip = makeStrip(selectedSpeed: 180, lastIssuedSpeed: 220)
 
         let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.speed])
 
         #expect(instruction == ["reduce speed one eight zero knots"])
     }
 
+    @Test func speedReadbackUsesMaintainWhenNoLastIssuedSpeed() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedSpeed: 210, lastIssuedSpeed: nil)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.speed])
+
+        #expect(instruction == ["maintain speed two one zero knots"])
+    }
+
+    @Test func callsignExpansionUsesAirlineNamesAndPhonetics() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(callsign: "BAW12A")
+
+        let readback = service.buildCAAReadback(for: strip, instruction: ["maintain speed two one zero knots"])
+
+        #expect(readback == "maintain speed two one zero knots, Speedbird one two alpha.")
+    }
+
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
 
-    private func makeStrip(selectedHeading: Int, selectedSpeed: Int = 220, lastIssuedSpeed: Int = 220) -> EFPSStrip {
+    private func makeStrip(
+        callsign: String = "EZY123",
+        selectedLevel: Int = 100,
+        currentLevel: Int = 100,
+        lastIssuedLevel: Int? = 100,
+        selectedHeading: Int = 90,
+        selectedSpeed: Int = 220,
+        lastIssuedSpeed: Int? = 220
+    ) -> EFPSStrip {
         EFPSStrip(
             aircraftID: UUID(),
-            callsign: "EZY123",
+            callsign: callsign,
             aircraftType: "A320",
             destination: "EGKK",
             isInbound: true,
             bay: .inbound,
-            selectedLevel: 100,
-            currentLevel: 100,
+            selectedLevel: selectedLevel,
+            currentLevel: currentLevel,
             selectedHeading: selectedHeading,
             currentHeading: 0,
             selectedSpeed: selectedSpeed,
             approachType: "ILS",
             approachCleared: false,
             instructionLog: [],
-            lastIssuedLevel: 100,
+            lastIssuedLevel: lastIssuedLevel,
             lastIssuedHeading: 0,
             lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
