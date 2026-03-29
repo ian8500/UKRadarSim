@@ -83,6 +83,8 @@ class SimulationEngine: ObservableObject {
         let dt: CGFloat = 0.1
 
         for i in aircraft.indices {
+            applyStripClearancesToAircraft(at: i, dt: dt)
+
             let headingRad = CGFloat(aircraft[i].heading * .pi / 180.0)
 
             // Temporary pixels-per-knot scale for prototype
@@ -117,7 +119,94 @@ class SimulationEngine: ObservableObject {
             return
         }
 
+        strips[stripIndex].selectedLevel = currentAircraft.selectedLevel
         strips[stripIndex].currentLevel = currentAircraft.currentLevel
+        strips[stripIndex].selectedHeading = Int(currentAircraft.heading.rounded()) % 360
+        strips[stripIndex].selectedSpeed = currentAircraft.groundSpeed
+    }
+
+    private func applyStripClearancesToAircraft(at index: Int, dt: CGFloat) {
+        let currentAircraft = aircraft[index]
+        guard let strip = strips.first(where: { $0.aircraftID == currentAircraft.id }) else {
+            return
+        }
+
+        var updatedAircraft = currentAircraft
+
+        let turnRateDegreesPerSecond: Double = 2.5
+        let maxTurnThisTick = turnRateDegreesPerSecond * Double(dt)
+        updatedAircraft.heading = turnToward(
+            current: updatedAircraft.heading,
+            target: Double(strip.selectedHeading),
+            maxDelta: maxTurnThisTick
+        )
+
+        let speedChangePerSecond = strip.approachCleared ? 25 : 12
+        let maxSpeedDelta = max(1, Int((CGFloat(speedChangePerSecond) * dt).rounded()))
+        updatedAircraft.groundSpeed = stepToward(
+            current: updatedAircraft.groundSpeed,
+            target: strip.selectedSpeed,
+            maxStep: maxSpeedDelta
+        )
+
+        updatedAircraft.selectedLevel = strip.selectedLevel
+        let levelStep = strip.approachCleared ? 2 : 1
+        updatedAircraft.currentLevel = stepToward(
+            current: updatedAircraft.currentLevel,
+            target: strip.selectedLevel,
+            maxStep: levelStep
+        )
+
+        if updatedAircraft.currentLevel < strip.selectedLevel {
+            updatedAircraft.trend = .climb
+        } else if updatedAircraft.currentLevel > strip.selectedLevel {
+            updatedAircraft.trend = .descend
+        } else {
+            updatedAircraft.trend = .level
+        }
+
+        aircraft[index] = updatedAircraft
+    }
+
+    private func stepToward(current: Int, target: Int, maxStep: Int) -> Int {
+        guard maxStep > 0 else { return current }
+        if current < target {
+            return min(current + maxStep, target)
+        }
+        if current > target {
+            return max(current - maxStep, target)
+        }
+        return current
+    }
+
+    private func turnToward(current: Double, target: Double, maxDelta: Double) -> Double {
+        guard maxDelta > 0 else { return normalizedHeading(current) }
+
+        let normalizedCurrent = normalizedHeading(current)
+        let normalizedTarget = normalizedHeading(target)
+        let delta = shortestTurnDelta(from: normalizedCurrent, to: normalizedTarget)
+
+        if abs(delta) <= maxDelta {
+            return normalizedTarget
+        }
+
+        let stepped = normalizedCurrent + (delta.sign == .minus ? -maxDelta : maxDelta)
+        return normalizedHeading(stepped)
+    }
+
+    private func shortestTurnDelta(from current: Double, to target: Double) -> Double {
+        var delta = target - current
+        if delta > 180 {
+            delta -= 360
+        } else if delta < -180 {
+            delta += 360
+        }
+        return delta
+    }
+
+    private func normalizedHeading(_ heading: Double) -> Double {
+        let wrapped = heading.truncatingRemainder(dividingBy: 360)
+        return wrapped >= 0 ? wrapped : wrapped + 360
     }
 
     func sendInstruction(stripID: UUID) {
