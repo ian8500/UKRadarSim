@@ -13,8 +13,9 @@ class SimulationEngine: ObservableObject {
     @Published var aircraft: [Aircraft] = []
     @Published var strips: [EFPSStrip] = []
 
-    private var movementTimer: Timer?
-    private var radarTimer: Timer?
+    private let truthUpdateInterval: CGFloat = 0.1
+    private let radarUpdateInterval: CGFloat = 6.0
+    private var elapsedSinceRadarUpdate: CGFloat = 0
     private let approachCourseHeading: Double = 34.5
     private let centerlineStart = CGPoint(x: 180, y: 576)
     private let runwayThreshold = CGPoint(x: 790, y: 232)
@@ -22,12 +23,6 @@ class SimulationEngine: ObservableObject {
 
     init() {
         setupTestAircraft()
-        start()
-    }
-
-    deinit {
-        movementTimer?.invalidate()
-        radarTimer?.invalidate()
     }
 
     private func setupTestAircraft() {
@@ -86,18 +81,25 @@ class SimulationEngine: ObservableObject {
         }
     }
 
-    private func start() {
-        movementTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            self?.updateAircraftTruth()
-        }
+    func step(dt: CGFloat) {
+        guard dt > 0 else { return }
+        var remainingStep = dt
 
-        radarTimer = Timer.scheduledTimer(withTimeInterval: 6.0, repeats: true) { [weak self] _ in
-            self?.updateRadarDisplayedPositions()
+        while remainingStep > 0 {
+            let truthDelta = min(truthUpdateInterval, remainingStep)
+            updateAircraftTruth(dt: truthDelta)
+            elapsedSinceRadarUpdate += truthDelta
+
+            while elapsedSinceRadarUpdate >= radarUpdateInterval {
+                updateRadarDisplayedPositions()
+                elapsedSinceRadarUpdate -= radarUpdateInterval
+            }
+
+            remainingStep -= truthDelta
         }
     }
 
-    private func updateAircraftTruth() {
-        let dt: CGFloat = 0.1
+    private func updateAircraftTruth(dt: CGFloat) {
 
         for i in aircraft.indices {
             if aircraft[i].isLanded { continue }
