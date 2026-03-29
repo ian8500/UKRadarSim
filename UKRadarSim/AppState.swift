@@ -3,8 +3,6 @@ import Foundation
 enum VectorSetting: Int, CaseIterable, Identifiable {
     case off = 0
     case sec60 = 60
-    case sec120 = 120
-    case sec180 = 180
 
     var id: Int { rawValue }
 
@@ -12,8 +10,6 @@ enum VectorSetting: Int, CaseIterable, Identifiable {
         switch self {
         case .off: return "Vectors: Off"
         case .sec60: return "Vectors: 60 sec"
-        case .sec120: return "Vectors: 120 sec"
-        case .sec180: return "Vectors: 180 sec"
         }
     }
 
@@ -21,8 +17,6 @@ enum VectorSetting: Int, CaseIterable, Identifiable {
         switch self {
         case .off: return "Off"
         case .sec60: return "60 sec"
-        case .sec120: return "120 sec"
-        case .sec180: return "180 sec"
         }
     }
 

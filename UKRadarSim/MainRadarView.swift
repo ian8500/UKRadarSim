@@ -206,18 +206,8 @@ struct MainRadarView: View {
     }
 
     private var vectorsMenu: some View {
-        Menu {
-            ForEach(VectorSetting.allCases) { setting in
-                Button {
-                    appState.vectorSetting = setting
-                } label: {
-                    if appState.vectorSetting == setting {
-                        Label(setting.menuLabel, systemImage: "checkmark")
-                    } else {
-                        Text(setting.menuLabel)
-                    }
-                }
-            }
+        Button {
+            appState.vectorSetting = (appState.vectorSetting == .off) ? .sec60 : .off
         } label: {
             Text(appState.vectorSetting.toolbarLabel)
                 .font(.subheadline.weight(.semibold))
