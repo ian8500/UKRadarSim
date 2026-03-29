@@ -311,12 +311,71 @@ private struct MapOverlayRenderer: View {
 
             }
 
+            let thresholdPoint = geometry.point(inViewFromWorld: geometry.runwayThreshold, viewSize: size)
+            let inboundTenNmPoint = geometry.point(inViewFromWorld: geometry.centerlineStart, viewSize: size)
+            let approachDirection = normalizedDirection(from: thresholdPoint, to: inboundTenNmPoint)
+            let tenNmDistance = distance(from: thresholdPoint, to: inboundTenNmPoint)
+            let outboundTenNmPoint = CGPoint(
+                x: thresholdPoint.x - (approachDirection.x * tenNmDistance),
+                y: thresholdPoint.y - (approachDirection.y * tenNmDistance)
+            )
+
             var centerline = Path()
-            centerline.move(to: geometry.point(inViewFromWorld: geometry.centerlineStart, viewSize: size))
-            centerline.addLine(to: geometry.point(inViewFromWorld: geometry.runwayThreshold, viewSize: size))
+            centerline.move(to: outboundTenNmPoint)
+            centerline.addLine(to: inboundTenNmPoint)
             context.stroke(centerline, with: .color(.white.opacity(0.75)), lineWidth: 1.2)
+
+            let markerOffsetsNm = stride(from: -10, through: 10, by: 2).map(CGFloat.init)
+            for markerOffsetNm in markerOffsetsNm {
+                let markerPoint = CGPoint(
+                    x: thresholdPoint.x + (approachDirection.x * tenNmDistance * (markerOffsetNm / 10.0)),
+                    y: thresholdPoint.y + (approachDirection.y * tenNmDistance * (markerOffsetNm / 10.0))
+                )
+
+                if markerOffsetNm == 0 {
+                    let airportMarker = CGRect(
+                        x: markerPoint.x - 4,
+                        y: markerPoint.y - 4,
+                        width: 8,
+                        height: 8
+                    )
+                    context.stroke(Path(ellipseIn: airportMarker), with: .color(.white.opacity(0.95)), lineWidth: 1.4)
+                } else {
+                    let perpendicular = normalizedPerpendicular(from: thresholdPoint, to: inboundTenNmPoint)
+                    var tickPath = Path()
+                    tickPath.move(to: CGPoint(
+                        x: markerPoint.x - (perpendicular.x * 4),
+                        y: markerPoint.y - (perpendicular.y * 4)
+                    ))
+                    tickPath.addLine(to: CGPoint(
+                        x: markerPoint.x + (perpendicular.x * 4),
+                        y: markerPoint.y + (perpendicular.y * 4)
+                    ))
+                    context.stroke(tickPath, with: .color(.white.opacity(0.9)), lineWidth: 1.1)
+                }
+            }
         }
         .frame(width: size.width, height: size.height)
+    }
+
+    private func normalizedDirection(from start: CGPoint, to end: CGPoint) -> CGPoint {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let length = hypot(dx, dy)
+        guard length > 0 else { return CGPoint(x: 1, y: 0) }
+        return CGPoint(x: dx / length, y: dy / length)
+    }
+
+    private func distance(from start: CGPoint, to end: CGPoint) -> CGFloat {
+        hypot(end.x - start.x, end.y - start.y)
+    }
+
+    private func normalizedPerpendicular(from start: CGPoint, to end: CGPoint) -> CGPoint {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let length = hypot(dx, dy)
+        guard length > 0 else { return CGPoint(x: 0, y: 1) }
+        return CGPoint(x: -dy / length, y: dx / length)
     }
 
     private func centroid(for polygon: [CGPoint]) -> CGPoint {
