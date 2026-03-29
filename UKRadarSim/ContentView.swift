@@ -41,6 +41,7 @@ private enum StripField: String, Identifiable {
 struct StripCard: View {
     @Binding var strip: EFPSStrip
     let sendInstruction: (Set<InstructionChange>) -> Void
+    let armILSIntercept: () -> Void
     let clearForApproach: () -> Void
     let flitStrip: (StripBay) -> Void
 
@@ -48,6 +49,7 @@ struct StripCard: View {
     @State private var draftLevel: Int = 0
     @State private var draftHeading: Int = 0
     @State private var draftSpeed: Int = 0
+    @State private var ilsModeArmed = false
 
     private let levelOptions: [Int] = Array(stride(from: 10, through: 60, by: 10)) + Array(stride(from: 70, through: 160, by: 10))
     private let speedOptions: [Int] = [250, 230, 210, 190, 170, 160]
@@ -90,16 +92,6 @@ struct StripCard: View {
                 Spacer()
             }
 
-            if let lastInstruction = strip.instructionLog.first {
-                Text("Last: \(lastInstruction)")
-                    .font(.caption)
-                    .foregroundColor(.black.opacity(0.75))
-                    .lineLimit(2)
-            } else {
-                Text("Last: —")
-                    .font(.caption)
-                    .foregroundColor(.black.opacity(0.55))
-            }
         }
         .padding(10)
         .frame(width: 460, alignment: .leading)
@@ -140,9 +132,15 @@ struct StripCard: View {
                 sendInstruction([.level])
             }
         case .heading:
-            HeadingPicker(selectedHeading: $draftHeading) {
+            HeadingPicker(selectedHeading: $draftHeading, ilsModeArmed: $ilsModeArmed) { ilsRequested in
                 strip.selectedHeading = draftHeading
-                sendInstruction([.heading])
+                if ilsRequested {
+                    armILSIntercept()
+                    sendInstruction([.heading, .ilsClearance])
+                    ilsModeArmed = false
+                } else {
+                    sendInstruction([.heading])
+                }
                 activeField = nil
             }
         case .speed:
@@ -243,7 +241,8 @@ struct StripCard: View {
 
 private struct HeadingPicker: View {
     @Binding var selectedHeading: Int
-    let onSend: () -> Void
+    @Binding var ilsModeArmed: Bool
+    let onSend: (Bool) -> Void
 
     private let baseHeadings: [Int] = Array(stride(from: 0, through: 340, by: 20))
 
@@ -265,8 +264,13 @@ private struct HeadingPicker: View {
                 adjustButton("+10", by: 10)
             }
 
+            Button("ILS") {
+                ilsModeArmed.toggle()
+            }
+            .buttonStyle(ilsModeArmed ? .borderedProminent : .bordered)
+
             Button("Send") {
-                onSend()
+                onSend(ilsModeArmed)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -363,6 +367,7 @@ struct StripBayColumn: View {
     let bay: StripBay
     @Binding var strips: [EFPSStrip]
     let sendInstruction: (UUID, Set<InstructionChange>) -> Void
+    let armILSIntercept: (UUID) -> Void
     let clearForApproach: (UUID) -> Void
     let flitStrip: (UUID, StripBay) -> Void
 
@@ -387,6 +392,9 @@ struct StripBayColumn: View {
                         strip: $strips[index],
                         sendInstruction: { changedFields in
                             sendInstruction(strips[index].id, changedFields)
+                        },
+                        armILSIntercept: {
+                            armILSIntercept(strips[index].id)
                         },
                         clearForApproach: {
                             clearForApproach(strips[index].id)

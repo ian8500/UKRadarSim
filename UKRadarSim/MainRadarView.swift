@@ -69,6 +69,9 @@ struct MainRadarView: View {
                         sendInstruction: { stripID, changedFields in
                             sim.sendInstruction(stripID: stripID, changedFields: changedFields)
                         },
+                        armILSIntercept: { stripID in
+                            sim.armILSIntercept(stripID: stripID)
+                        },
                         clearForApproach: { stripID in
                             sim.clearForApproach(stripID: stripID)
                         },

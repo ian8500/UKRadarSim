@@ -58,8 +58,12 @@ final class VoiceReadbackService {
             ? changedFields.contains(.heading)
             : strip.lastIssuedHeading != strip.selectedHeading
         if includeHeading && strip.lastIssuedHeading != strip.selectedHeading {
-            let direction = turnDirection(from: strip.currentHeading, to: strip.selectedHeading)
-            segments.append("turn \(direction) heading \(digitWise(normalizedHeading(strip.selectedHeading), width: 3))")
+            if changedFields.contains(.ilsClearance) {
+                segments.append("head \(digitWise(normalizedHeading(strip.selectedHeading), width: 3))")
+            } else {
+                let direction = turnDirection(from: strip.currentHeading, to: strip.selectedHeading)
+                segments.append("turn \(direction) heading \(digitWise(normalizedHeading(strip.selectedHeading), width: 3))")
+            }
         }
 
         let includeSpeed = useExplicitChanges
@@ -74,6 +78,11 @@ final class VoiceReadbackService {
             : strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased()
         if includeApproach && strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased() {
             segments.append(approachSegment(for: strip.approachType))
+        }
+
+
+        if changedFields.contains(.ilsClearance) {
+            segments.append("cleared ILS approach")
         }
 
         return segments
