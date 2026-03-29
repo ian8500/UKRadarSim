@@ -2,19 +2,33 @@ import SwiftUI
 
 struct MainRadarView: View {
     @EnvironmentObject private var appState: AppState
-    @StateObject private var sim = SimulationEngine()
+    @StateObject private var sim: SimulationEngine
+    @StateObject private var clock: SimulationClock
+
+    init() {
+        let simulationEngine = SimulationEngine()
+        _sim = StateObject(wrappedValue: simulationEngine)
+        _clock = StateObject(wrappedValue: SimulationClock(simulationEngine: simulationEngine))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             RadarCanvasView(
                 aircraft: sim.aircraft,
-                vectorSetting: appState.vectorSetting
+                vectorSetting: appState.vectorSetting,
+                geometry: geometry
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             toolbar
 
             stripArea
+        }
+        .onAppear {
+            clock.start()
+        }
+        .onDisappear {
+            clock.pause()
         }
     }
 
@@ -23,8 +37,16 @@ struct MainRadarView: View {
             ToolbarButton(title: "Layers")
             vectorsMenu
             ToolbarButton(title: "Wake")
-            ToolbarButton(title: sim.isPaused ? "Resume" : "Pause") {
-                sim.togglePause()
+            Button {
+                clock.isRunning ? clock.pause() : clock.resume()
+            } label: {
+                Text(clock.isRunning ? "Pause" : "Resume")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.25))
+                    .cornerRadius(8)
             }
 
             Spacer()
