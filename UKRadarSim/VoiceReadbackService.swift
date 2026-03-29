@@ -7,6 +7,7 @@ enum PilotAccent: String {
     case american = "en-US"
 }
 
+@MainActor
 final class VoiceReadbackService {
     static let shared = VoiceReadbackService()
 
