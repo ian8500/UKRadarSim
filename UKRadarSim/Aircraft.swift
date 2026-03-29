@@ -37,6 +37,7 @@ struct Aircraft: Identifiable {
 
     var destination: String
     var isInbound: Bool
+    var isLanded: Bool = false
 }
 
 enum StripBay: String, CaseIterable, Identifiable {

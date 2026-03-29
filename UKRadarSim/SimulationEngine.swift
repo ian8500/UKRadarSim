@@ -83,6 +83,7 @@ class SimulationEngine: ObservableObject {
         let dt: CGFloat = 0.1
 
         for i in aircraft.indices {
+            if aircraft[i].isLanded { continue }
             applyStripClearancesToAircraft(at: i, dt: dt)
 
             let headingRad = CGFloat(aircraft[i].heading * .pi / 180.0)
