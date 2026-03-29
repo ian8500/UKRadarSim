@@ -5,12 +5,17 @@ struct MainRadarView: View {
     @StateObject private var sim: SimulationEngine
     @StateObject private var clock: SimulationClock
 
+    private let geometry = RadarGeometry.default
+
     init() {
-        let simulationEngine = SimulationEngine()
+        let radarGeometry = RadarGeometry.default
+        let simulationEngine = SimulationEngine(
+            geometry: radarGeometry,
+            startupScenario: /* replace with a real SimulationScenario value */
+        )
         _sim = StateObject(wrappedValue: simulationEngine)
         _clock = StateObject(wrappedValue: SimulationClock(simulationEngine: simulationEngine))
     }
-
     var body: some View {
         VStack(spacing: 0) {
             RadarCanvasView(
