@@ -72,6 +72,7 @@ class SimulationEngine: ObservableObject {
                 selectedLevel: item.selectedLevel,
                 currentLevel: item.currentLevel,
                 selectedHeading: Int(item.heading),
+                currentHeading: Int(item.heading),
                 selectedSpeed: item.groundSpeed,
                 approachType: item.isInbound ? "ILS" : "SID",
                 approachCleared: false,
@@ -156,6 +157,7 @@ class SimulationEngine: ObservableObject {
         }
 
         strips[stripIndex].currentLevel = currentAircraft.currentLevel
+        strips[stripIndex].currentHeading = Int(currentAircraft.heading.rounded())
         strips[stripIndex].approachCaptured = currentAircraft.approachCaptured
         strips[stripIndex].isLanded = currentAircraft.isLanded
     }

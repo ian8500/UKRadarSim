@@ -58,7 +58,8 @@ final class VoiceReadbackService {
             ? changedFields.contains(.heading)
             : strip.lastIssuedHeading != strip.selectedHeading
         if includeHeading && strip.lastIssuedHeading != strip.selectedHeading {
-            segments.append("turn left heading \(digitWise(strip.selectedHeading, width: 3))")
+            let direction = turnDirection(from: strip.currentHeading, to: strip.selectedHeading)
+            segments.append("turn \(direction) heading \(digitWise(normalizedHeading(strip.selectedHeading), width: 3))")
         }
 
         let includeSpeed = useExplicitChanges
@@ -151,6 +152,19 @@ final class VoiceReadbackService {
             return spokenPrefix
         }
         return "\(spokenPrefix) \(spokenSuffix)"
+    }
+
+    private func turnDirection(from current: Int, to target: Int) -> String {
+        let normalizedCurrent = normalizedHeading(current)
+        let normalizedTarget = normalizedHeading(target)
+        let clockwiseDelta = (normalizedTarget - normalizedCurrent + 360) % 360
+        let counterclockwiseDelta = (normalizedCurrent - normalizedTarget + 360) % 360
+
+        return clockwiseDelta <= counterclockwiseDelta ? "right" : "left"
+    }
+
+    private func normalizedHeading(_ heading: Int) -> Int {
+        (heading % 360 + 360) % 360
     }
 
     private func digitWise(_ value: Int, width: Int? = nil) -> String {
