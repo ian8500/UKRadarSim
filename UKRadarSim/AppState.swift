@@ -2,6 +2,33 @@ import Foundation
 
 final class AppState: ObservableObject {
     @Published var vectorSetting: VectorSetting = .off
+
+    @Published var featureAccess = FeatureAccess()
+
+    // Seed content; premium flags are optional by design.
+    @Published var airports: [AirportConfig] = [
+        AirportConfig(icao: "EGKK", name: "London Gatwick", isPremium: nil),
+        AirportConfig(icao: "EGLL", name: "London Heathrow", isPremium: true),
+        AirportConfig(icao: "EGCC", name: "Manchester", isPremium: true)
+    ]
+
+    @Published var weatherPacks: [WeatherPack] = [
+        WeatherPack(id: "standard-uk", name: "UK Standard", isPremium: nil),
+        WeatherPack(id: "winter-fronts", name: "Winter Fronts", isPremium: true)
+    ]
+
+    func canAccess(airport: AirportConfig) -> Bool {
+        // Future StoreKit hook:
+        // Replace tier check with a full entitlement resolver
+        // (e.g. product-level unlocks, grace period, family sharing).
+        guard airport.isPremium == true else { return true }
+        return featureAccess.hasPremiumEntitlements
+    }
+
+    func canAccess(weatherPack: WeatherPack) -> Bool {
+        guard weatherPack.isPremium == true else { return true }
+        return featureAccess.hasPremiumEntitlements
+    }
 }
 
 enum VectorSetting: Int, CaseIterable, Identifiable {
