@@ -58,11 +58,12 @@ final class VoiceReadbackService {
             ? changedFields.contains(.heading)
             : strip.lastIssuedHeading != strip.selectedHeading
         if includeHeading && strip.lastIssuedHeading != strip.selectedHeading {
+            let headingReadback = spokenHeading(strip.selectedHeading)
             if changedFields.contains(.ilsClearance) {
-                segments.append("head \(digitWise(normalizedHeading(strip.selectedHeading), width: 3))")
+                segments.append("head \(headingReadback)")
             } else {
                 let direction = turnDirection(from: strip.currentHeading, to: strip.selectedHeading)
-                segments.append("turn \(direction) heading \(digitWise(normalizedHeading(strip.selectedHeading), width: 3))")
+                segments.append("turn \(direction) heading \(headingReadback)")
             }
         }
 
@@ -179,6 +180,17 @@ final class VoiceReadbackService {
     private func digitWise(_ value: Int, width: Int? = nil) -> String {
         let stringValue = width.map { String(format: "%0\($0)d", value) } ?? String(value)
         return stringValue.map { spokenToken(for: String($0)) }.joined(separator: " ")
+    }
+
+    private func spokenHeading(_ heading: Int) -> String {
+        let normalized = normalizedHeading(heading)
+        let headingDigits = digitWise(normalized, width: 3)
+
+        if normalized % 10 == 0 {
+            return "\(headingDigits) degrees"
+        }
+
+        return headingDigits
     }
 
     private func spokenAltitude(_ feet: Int) -> String {

@@ -64,7 +64,48 @@ struct UKRadarSimTests {
         }
     }
 
+    @Test func headingReadbackIncludesDegreesForHeadingsEndingInZero() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedHeading: 30)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.heading])
+
+        #expect(instruction == ["turn right heading zero three zero degrees"])
+    }
+
+    @Test func headingReadbackOmitsDegreesForHeadingsNotEndingInZero() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedHeading: 27)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.heading])
+
+        #expect(instruction == ["turn right heading zero two seven"])
+    }
+
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
+    }
+
+    private func makeStrip(selectedHeading: Int) -> EFPSStrip {
+        EFPSStrip(
+            aircraftID: UUID(),
+            callsign: "EZY123",
+            aircraftType: "A320",
+            destination: "EGKK",
+            isInbound: true,
+            bay: .inbound,
+            selectedLevel: 100,
+            currentLevel: 100,
+            selectedHeading: selectedHeading,
+            currentHeading: 0,
+            selectedSpeed: 220,
+            approachType: "ILS",
+            approachCleared: false,
+            instructionLog: [],
+            lastIssuedLevel: 100,
+            lastIssuedHeading: 0,
+            lastIssuedSpeed: 220,
+            lastIssuedApproachType: "ILS"
+        )
     }
 }
