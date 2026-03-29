@@ -255,25 +255,17 @@ class SimulationEngine: ObservableObject {
         guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
             return
         }
-        guard let aircraftIndex = aircraft.firstIndex(where: { $0.id == strips[stripIndex].aircraftID }) else {
-            return
-        }
 
         strips[stripIndex].approachType = "ILS"
         strips[stripIndex].approachCleared = true
-        aircraft[aircraftIndex].autoLandingActive = true
     }
 
     func clearForApproach(stripID: UUID) {
         guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
             return
         }
-        guard let aircraftIndex = aircraft.firstIndex(where: { $0.id == strips[stripIndex].aircraftID }) else {
-            return
-        }
 
         strips[stripIndex].approachCleared = true
-        aircraft[aircraftIndex].autoLandingActive = true
         let strip = strips[stripIndex]
         let instruction = "\(strip.callsign) | CLEARED \(strip.approachType) APPROACH"
         strips[stripIndex].instructionLog.insert(instruction, at: 0)
@@ -281,6 +273,8 @@ class SimulationEngine: ObservableObject {
 
     private func applyApproachAutomationIfNeeded(index: Int, dt: CGFloat) {
         let aircraftID = aircraft[index].id
+        // Approach automation is intentionally gated by strip clearance state.
+        // Capture state then controls whether full localizer/glideslope tracking is active.
         guard aircraft[index].isInbound,
               let stripIndex = strips.firstIndex(where: { $0.aircraftID == aircraftID }),
               strips[stripIndex].approachCleared
