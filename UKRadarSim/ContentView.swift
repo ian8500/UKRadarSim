@@ -64,7 +64,7 @@ struct StripCard: View {
                         Text("APP")
                             .font(.caption2.weight(.bold))
                             .foregroundColor(.black.opacity(0.7))
-                        Text(strip.approachCleared ? "CLEARED" : "CLEAR")
+                        Text(approachStatusText)
                             .font(.caption.weight(.semibold))
                             .foregroundColor(.black)
                             .lineLimit(1)
@@ -241,6 +241,12 @@ struct StripCard: View {
         draftLevel = strip.selectedLevel
         draftHeading = strip.selectedHeading
         draftSpeed = strip.selectedSpeed
+    }
+
+    private var approachStatusText: String {
+        if strip.isLanded { return "LANDED" }
+        if strip.approachCaptured { return "CAPTURED" }
+        return strip.approachCleared ? "CLEARED" : "CLEAR"
     }
 }
 
