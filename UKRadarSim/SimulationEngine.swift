@@ -108,16 +108,36 @@ class SimulationEngine: ObservableObject {
 
     private func updateRadarDisplayedPositions() {
         for i in aircraft.indices {
+            let previousDisplayPoint = CGPoint(x: aircraft[i].displayX, y: aircraft[i].displayY)
+            aircraft[i].historyDots.insert(previousDisplayPoint, at: 0)
+            aircraft[i].historyDots = Array(aircraft[i].historyDots.prefix(6))
             aircraft[i].displayX = aircraft[i].trueX
             aircraft[i].displayY = aircraft[i].trueY
         }
     }
 
     private func wrapAircraftIfNeeded(index: Int) {
-        if aircraft[index].trueX > 1100 { aircraft[index].trueX = -100 }
-        if aircraft[index].trueX < -100 { aircraft[index].trueX = 1100 }
-        if aircraft[index].trueY > 900 { aircraft[index].trueY = -100 }
-        if aircraft[index].trueY < -100 { aircraft[index].trueY = 900 }
+        var didWrap = false
+        if aircraft[index].trueX > 1100 {
+            aircraft[index].trueX = -100
+            didWrap = true
+        }
+        if aircraft[index].trueX < -100 {
+            aircraft[index].trueX = 1100
+            didWrap = true
+        }
+        if aircraft[index].trueY > 900 {
+            aircraft[index].trueY = -100
+            didWrap = true
+        }
+        if aircraft[index].trueY < -100 {
+            aircraft[index].trueY = 900
+            didWrap = true
+        }
+
+        if didWrap {
+            aircraft[index].historyDots.removeAll()
+        }
     }
 
     private func syncStripFromAircraft(at index: Int) {
