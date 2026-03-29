@@ -128,6 +128,13 @@ struct AircraftTrackView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
+            ForEach(Array(aircraft.historyDots.enumerated()), id: \.offset) { index, point in
+                Circle()
+                    .fill(Color.white.opacity(dotOpacity(for: index)))
+                    .frame(width: 4, height: 4)
+                    .position(x: point.x, y: point.y)
+            }
+
             // Aircraft symbol
             Circle()
                 .fill(Color.white)
@@ -145,6 +152,11 @@ struct AircraftTrackView: View {
             GatwickStyleLabel(aircraft: aircraft)
                 .position(x: aircraft.displayX + 92, y: aircraft.displayY - 42)
         }
+    }
+
+    private func dotOpacity(for index: Int) -> Double {
+        let baseOpacity = 0.6 - (Double(index) * 0.08)
+        return max(0.15, baseOpacity)
     }
 }
 

@@ -27,6 +27,7 @@ struct Aircraft: Identifiable {
     // What radar currently shows
     var displayX: CGFloat
     var displayY: CGFloat
+    var historyDots: [CGPoint] = []
 
     var heading: Double
     var groundSpeed: Int
@@ -37,6 +38,8 @@ struct Aircraft: Identifiable {
 
     var destination: String
     var isInbound: Bool
+    var approachCaptured: Bool = false
+    var autoLandingActive: Bool = false
     var isLanded: Bool = false
 }
 
@@ -62,7 +65,13 @@ struct EFPSStrip: Identifiable {
     var selectedSpeed: Int
     var approachType: String
     var approachCleared: Bool
+    var approachCaptured: Bool = false
+    var isLanded: Bool = false
     var instructionLog: [String]
+    var lastIssuedLevel: Int?
+    var lastIssuedHeading: Int?
+    var lastIssuedSpeed: Int?
+    var lastIssuedApproachType: String?
 
     var stripColorHex: String {
         isInbound ? "#E8CF9B" : "#D2E4FF"
