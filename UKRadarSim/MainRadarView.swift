@@ -11,7 +11,7 @@ struct MainRadarView: View {
         let radarGeometry = RadarGeometry.default
         let simulationEngine = SimulationEngine(
             geometry: radarGeometry,
-            startupScenario: /* replace with a real SimulationScenario value */
+            startupScenario: ScenarioLibrary.default
         )
         _sim = StateObject(wrappedValue: simulationEngine)
         _clock = StateObject(wrappedValue: SimulationClock(simulationEngine: simulationEngine))
