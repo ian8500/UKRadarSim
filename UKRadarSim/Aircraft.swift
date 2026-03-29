@@ -62,6 +62,7 @@ struct EFPSStrip: Identifiable {
     var selectedLevel: Int
     var currentLevel: Int
     var selectedHeading: Int
+    var currentHeading: Int
     var selectedSpeed: Int
     var approachType: String
     var approachCleared: Bool
