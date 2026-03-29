@@ -48,6 +48,29 @@ struct RadarCanvasView: View {
                 )
             }
 
+            for sector in geometry.terrainSectors {
+                var terrainPath = Path()
+                if let first = sector.polygonFractions.first {
+                    terrainPath.move(to: geometry.point(inViewFromFraction: first, viewSize: size))
+                    for point in sector.polygonFractions.dropFirst() {
+                        terrainPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                    }
+                    terrainPath.closeSubpath()
+                }
+
+                context.fill(terrainPath, with: .color(Color.brown.opacity(0.15)))
+                context.stroke(terrainPath, with: .color(Color.orange.opacity(0.30)), lineWidth: 0.8)
+
+                if !sector.polygonFractions.isEmpty {
+                    let centroid = centroid(for: sector.polygonFractions)
+                    let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
+                    let text = Text(sector.minimumAltitudeLabel)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.orange.opacity(0.95))
+                    context.draw(text, at: point)
+                }
+            }
+
             var centerline = Path()
             centerline.move(to: geometry.point(inViewFromWorld: geometry.centerlineStart, viewSize: size))
             centerline.addLine(to: geometry.point(inViewFromWorld: geometry.runwayThreshold, viewSize: size))
@@ -82,12 +105,47 @@ struct RadarCanvasView: View {
                 cas.closeSubpath()
             }
 
+            for shelf in geometry.controlledAirspaceShelves {
+                var shelfPath = Path()
+                if let firstPoint = shelf.polygonFractions.first {
+                    shelfPath.move(to: geometry.point(inViewFromFraction: firstPoint, viewSize: size))
+                    for point in shelf.polygonFractions.dropFirst() {
+                        shelfPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                    }
+                    shelfPath.closeSubpath()
+                }
+
+                context.fill(shelfPath, with: .color(Color.cyan.opacity(0.08)))
+                context.stroke(
+                    shelfPath,
+                    with: .color(.cyan.opacity(0.35)),
+                    style: StrokeStyle(lineWidth: 0.9, dash: [4, 4])
+                )
+
+                if !shelf.polygonFractions.isEmpty {
+                    let centroid = centroid(for: shelf.polygonFractions)
+                    let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
+                    let text = Text("\(shelf.floorLabel)-\(shelf.ceilingLabel)")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.cyan.opacity(0.95))
+                    context.draw(text, at: point)
+                }
+            }
+
             context.stroke(
                 cas,
                 with: .color(.white.opacity(0.28)),
                 style: StrokeStyle(lineWidth: 1, dash: [5, 5])
             )
         }
+    }
+
+    private func centroid(for polygon: [CGPoint]) -> CGPoint {
+        guard !polygon.isEmpty else { return CGPoint(x: 0.5, y: 0.5) }
+        let sums = polygon.reduce((x: CGFloat.zero, y: CGFloat.zero)) { partial, point in
+            (partial.x + point.x, partial.y + point.y)
+        }
+        return CGPoint(x: sums.x / CGFloat(polygon.count), y: sums.y / CGFloat(polygon.count))
     }
 
     private func vectorLayer(in size: CGSize) -> some View {
