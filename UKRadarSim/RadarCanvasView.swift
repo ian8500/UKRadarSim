@@ -3,6 +3,8 @@ import SwiftUI
 struct RadarCanvasView: View {
     let aircraft: [Aircraft]
     let vectorSetting: VectorSetting
+    let showsControlledAirspaceBase: Bool
+    let showsTerrainMap: Bool
     let geometry: RadarGeometry
 
     private let predictor = AircraftPredictor()
@@ -125,12 +127,15 @@ private struct MapOverlayRenderer: View {
                 context.stroke(path, with: .color(.white.opacity(0.18)), style: StrokeStyle(lineWidth: 1, dash: [6, 6]))
             }
 
-            for sector in geometry.terrainSectors {
-                var terrainPath = Path()
-                if let first = sector.polygonFractions.first {
-                    terrainPath.move(to: geometry.point(inViewFromFraction: first, viewSize: size))
-                    for point in sector.polygonFractions.dropFirst() {
-                        terrainPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+            if showsTerrainMap {
+                for sector in geometry.terrainSectors {
+                    var terrainPath = Path()
+                    if let first = sector.polygonFractions.first {
+                        terrainPath.move(to: geometry.point(inViewFromFraction: first, viewSize: size))
+                        for point in sector.polygonFractions.dropFirst() {
+                            terrainPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                        }
+                        terrainPath.closeSubpath()
                     }
                     terrainPath.closeSubpath()
                 }
@@ -156,14 +161,31 @@ private struct MapOverlayRenderer: View {
             }
             context.stroke(ctr, with: .color(.white.opacity(0.35)), style: StrokeStyle(lineWidth: 1.2, dash: [6, 5]))
 
-            for shelf in geometry.controlledAirspaceShelves {
-                var shelfPath = Path()
-                if let firstPoint = shelf.polygonFractions.first {
-                    shelfPath.move(to: geometry.point(inViewFromFraction: firstPoint, viewSize: size))
-                    for point in shelf.polygonFractions.dropFirst() {
-                        shelfPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                for shelf in geometry.controlledAirspaceShelves {
+                    var shelfPath = Path()
+                    if let firstPoint = shelf.polygonFractions.first {
+                        shelfPath.move(to: geometry.point(inViewFromFraction: firstPoint, viewSize: size))
+                        for point in shelf.polygonFractions.dropFirst() {
+                            shelfPath.addLine(to: geometry.point(inViewFromFraction: point, viewSize: size))
+                        }
+                        shelfPath.closeSubpath()
                     }
-                    shelfPath.closeSubpath()
+
+                    context.fill(shelfPath, with: .color(Color.cyan.opacity(0.08)))
+                    context.stroke(
+                        shelfPath,
+                        with: .color(.cyan.opacity(0.35)),
+                        style: StrokeStyle(lineWidth: 0.9, dash: [4, 4])
+                    )
+
+                    if !shelf.polygonFractions.isEmpty {
+                        let centroid = centroid(for: shelf.polygonFractions)
+                        let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
+                        let text = Text("BASE \(shelf.floorLabel)")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.cyan.opacity(0.95))
+                        context.draw(text, at: point)
+                    }
                 }
                 context.fill(shelfPath, with: .color(Color.cyan.opacity(0.08)))
                 context.stroke(shelfPath, with: .color(.cyan.opacity(0.35)), style: StrokeStyle(lineWidth: 0.9, dash: [4, 4]))
