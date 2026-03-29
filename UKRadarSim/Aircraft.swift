@@ -93,6 +93,7 @@ struct RadarGeometry {
     let runwayThresholdFraction: CGPoint
     let controlledAirspacePolygonFractions: [CGPoint]
     let controlledAirspaceShelves: [AirspaceShelf]
+    let surroundingAirways: [AirwaySegment]
     let terrainSectors: [TerrainSector]
     let wrapInset: CGFloat
 
@@ -110,6 +111,7 @@ struct RadarGeometry {
             CGPoint(x: 0.22, y: 0.88)
         ],
         controlledAirspaceShelves: [],
+        surroundingAirways: [],
         terrainSectors: [],
         wrapInset: 100
     )
@@ -151,6 +153,11 @@ struct AirspaceShelf {
     let polygonFractions: [CGPoint]
     let floorLabel: String
     let ceilingLabel: String
+}
+
+struct AirwaySegment {
+    let identifier: String
+    let waypoints: [CGPoint]
 }
 
 struct TerrainSector {
@@ -195,6 +202,29 @@ enum AirportMapCatalog {
                 ],
                 floorLabel: "3500",
                 ceilingLabel: "FL195"
+            )
+        ],
+        surroundingAirways: [
+            AirwaySegment(
+                identifier: "L9",
+                waypoints: [
+                    CGPoint(x: 0.00, y: 0.36), CGPoint(x: 0.20, y: 0.40),
+                    CGPoint(x: 0.44, y: 0.46), CGPoint(x: 0.68, y: 0.52), CGPoint(x: 1.00, y: 0.58)
+                ]
+            ),
+            AirwaySegment(
+                identifier: "M23",
+                waypoints: [
+                    CGPoint(x: 0.14, y: 0.86), CGPoint(x: 0.30, y: 0.70),
+                    CGPoint(x: 0.46, y: 0.58), CGPoint(x: 0.63, y: 0.44), CGPoint(x: 0.78, y: 0.28)
+                ]
+            ),
+            AirwaySegment(
+                identifier: "UL607",
+                waypoints: [
+                    CGPoint(x: 0.24, y: 0.06), CGPoint(x: 0.40, y: 0.22),
+                    CGPoint(x: 0.56, y: 0.40), CGPoint(x: 0.72, y: 0.64), CGPoint(x: 0.88, y: 0.92)
+                ]
             )
         ],
         terrainSectors: [
@@ -247,6 +277,29 @@ enum AirportMapCatalog {
                 ceilingLabel: "FL195"
             )
         ],
+        surroundingAirways: [
+            AirwaySegment(
+                identifier: "L607",
+                waypoints: [
+                    CGPoint(x: 0.00, y: 0.42), CGPoint(x: 0.22, y: 0.44),
+                    CGPoint(x: 0.44, y: 0.46), CGPoint(x: 0.67, y: 0.48), CGPoint(x: 1.00, y: 0.50)
+                ]
+            ),
+            AirwaySegment(
+                identifier: "UL9",
+                waypoints: [
+                    CGPoint(x: 0.08, y: 0.84), CGPoint(x: 0.24, y: 0.68),
+                    CGPoint(x: 0.40, y: 0.54), CGPoint(x: 0.58, y: 0.40), CGPoint(x: 0.82, y: 0.22)
+                ]
+            ),
+            AirwaySegment(
+                identifier: "N546",
+                waypoints: [
+                    CGPoint(x: 0.20, y: 0.08), CGPoint(x: 0.34, y: 0.24),
+                    CGPoint(x: 0.50, y: 0.42), CGPoint(x: 0.66, y: 0.60), CGPoint(x: 0.82, y: 0.82)
+                ]
+            )
+        ],
         terrainSectors: [
             TerrainSector(
                 polygonFractions: [
@@ -297,6 +350,22 @@ enum AirportMapCatalog {
                 ceilingLabel: "FL195"
             )
         ],
+        surroundingAirways: [
+            AirwaySegment(
+                identifier: "P600",
+                waypoints: [
+                    CGPoint(x: 0.04, y: 0.30), CGPoint(x: 0.26, y: 0.36),
+                    CGPoint(x: 0.48, y: 0.42), CGPoint(x: 0.72, y: 0.52), CGPoint(x: 1.00, y: 0.64)
+                ]
+            ),
+            AirwaySegment(
+                identifier: "N560",
+                waypoints: [
+                    CGPoint(x: 0.16, y: 0.88), CGPoint(x: 0.30, y: 0.70),
+                    CGPoint(x: 0.46, y: 0.54), CGPoint(x: 0.62, y: 0.36), CGPoint(x: 0.76, y: 0.16)
+                ]
+            )
+        ],
         terrainSectors: [
             TerrainSector(
                 polygonFractions: [
@@ -345,6 +414,22 @@ enum AirportMapCatalog {
                 ],
                 floorLabel: "4500",
                 ceilingLabel: "FL195"
+            )
+        ],
+        surroundingAirways: [
+            AirwaySegment(
+                identifier: "P18",
+                waypoints: [
+                    CGPoint(x: 0.06, y: 0.30), CGPoint(x: 0.24, y: 0.38),
+                    CGPoint(x: 0.46, y: 0.44), CGPoint(x: 0.72, y: 0.56), CGPoint(x: 0.96, y: 0.70)
+                ]
+            ),
+            AirwaySegment(
+                identifier: "N63",
+                waypoints: [
+                    CGPoint(x: 0.18, y: 0.88), CGPoint(x: 0.34, y: 0.70),
+                    CGPoint(x: 0.50, y: 0.54), CGPoint(x: 0.64, y: 0.38), CGPoint(x: 0.78, y: 0.20)
+                ]
             )
         ],
         terrainSectors: [
