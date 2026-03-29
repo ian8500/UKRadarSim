@@ -37,6 +37,12 @@ struct Aircraft: Identifiable {
 
     var destination: String
     var isInbound: Bool
+    var approachMode: ApproachMode = .vectoring
+}
+
+enum ApproachMode {
+    case vectoring
+    case ilsLocked
 }
 
 enum StripBay: String, CaseIterable, Identifiable {

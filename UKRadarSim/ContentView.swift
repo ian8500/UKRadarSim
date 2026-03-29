@@ -47,6 +47,7 @@ private enum StripField: String, Identifiable {
 struct StripCard: View {
     @Binding var strip: EFPSStrip
     let sendInstruction: () -> Void
+    let armApproach: () -> Void
     let flitStrip: (StripBay) -> Void
 
     @State private var activeField: StripField?
@@ -83,6 +84,14 @@ struct StripCard: View {
                 .foregroundColor(.black.opacity(0.8))
 
                 Spacer()
+
+                if strip.isInbound {
+                    Button("Approach") {
+                        armApproach()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.bordered)
+                }
 
                 Button("Send") {
                     sendInstruction()
@@ -309,6 +318,7 @@ struct StripBayColumn: View {
     let bay: StripBay
     @Binding var strips: [EFPSStrip]
     let sendInstruction: (UUID) -> Void
+    let armApproach: (UUID) -> Void
     let flitStrip: (UUID, StripBay) -> Void
 
     private var stripIndexes: [Int] {
@@ -332,6 +342,9 @@ struct StripBayColumn: View {
                         strip: $strips[index],
                         sendInstruction: {
                             sendInstruction(strips[index].id)
+                        },
+                        armApproach: {
+                            armApproach(strips[index].id)
                         },
                         flitStrip: { targetBay in
                             flitStrip(strips[index].id, targetBay)
