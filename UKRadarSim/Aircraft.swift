@@ -27,6 +27,7 @@ struct Aircraft: Identifiable {
     // What radar currently shows
     var displayX: CGFloat
     var displayY: CGFloat
+    var historyDots: [CGPoint] = []
 
     var heading: Double
     var groundSpeed: Int
