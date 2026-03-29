@@ -146,6 +146,7 @@ class SimulationEngine: ObservableObject {
             return
         }
 
+        strips[stripIndex].selectedLevel = currentAircraft.selectedLevel
         strips[stripIndex].currentLevel = currentAircraft.currentLevel
         strips[stripIndex].approachCaptured = currentAircraft.approachCaptured
         strips[stripIndex].isLanded = currentAircraft.isLanded
