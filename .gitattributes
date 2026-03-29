@@ -1,0 +1,4 @@
+*.pbxproj text merge=union
+*.xcodeproj/project.pbxproj text merge=union
+
+*.swift text eol=lf
