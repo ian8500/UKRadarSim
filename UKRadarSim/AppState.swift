@@ -72,8 +72,8 @@ final class AppState: ObservableObject {
     // Seed content; premium flags are optional by design.
     @Published var airports: [AirportConfig] = [
         AirportConfig(icao: "EGKK", name: "London Gatwick", isPremium: nil),
-        AirportConfig(icao: "EGLL", name: "London Heathrow", isPremium: true),
-        AirportConfig(icao: "EGPF", name: "Glasgow", isPremium: true),
+        AirportConfig(icao: "EGLL", name: "London Heathrow", isPremium: nil),
+        AirportConfig(icao: "EGPF", name: "Glasgow", isPremium: nil),
         AirportConfig(icao: "EGPH", name: "Edinburgh", isPremium: true)
     ]
 
