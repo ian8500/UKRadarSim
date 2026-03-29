@@ -17,6 +17,7 @@ class SimulationEngine: ObservableObject {
     private let approachCourseHeading: Double = 34.5
     private let centerlineStart = CGPoint(x: 180, y: 576)
     private let runwayThreshold = CGPoint(x: 790, y: 232)
+    private var verticalProgressByAircraft: [UUID: Double] = [:]
 
     init() {
         setupTestAircraft()
@@ -98,6 +99,7 @@ class SimulationEngine: ObservableObject {
 
         for i in aircraft.indices {
             if aircraft[i].isLanded { continue }
+            applyControllerTargetsIfNeeded(index: i, dt: dt)
             let headingRad = CGFloat(aircraft[i].heading * .pi / 180.0)
 
             // Temporary pixels-per-knot scale for prototype
@@ -153,10 +155,61 @@ class SimulationEngine: ObservableObject {
             return
         }
 
-        strips[stripIndex].selectedLevel = currentAircraft.selectedLevel
         strips[stripIndex].currentLevel = currentAircraft.currentLevel
         strips[stripIndex].approachCaptured = currentAircraft.approachCaptured
         strips[stripIndex].isLanded = currentAircraft.isLanded
+    }
+
+    private func applyControllerTargetsIfNeeded(index: Int, dt: CGFloat) {
+        let aircraftID = aircraft[index].id
+        guard let stripIndex = strips.firstIndex(where: { $0.aircraftID == aircraftID }) else {
+            return
+        }
+
+        if aircraft[index].isInbound && strips[stripIndex].approachCleared && aircraft[index].approachCaptured {
+            return
+        }
+
+        aircraft[index].selectedLevel = strips[stripIndex].selectedLevel
+
+        let headingTarget = Double(strips[stripIndex].selectedHeading)
+        aircraft[index].heading = moveAngle(
+            aircraft[index].heading,
+            toward: headingTarget,
+            maxDelta: Double(dt) * 3.0
+        )
+
+        let speedTarget = strips[stripIndex].selectedSpeed
+        if aircraft[index].groundSpeed < speedTarget {
+            let increase = max(1, Int((Double(dt) * 8.0).rounded()))
+            aircraft[index].groundSpeed = min(speedTarget, aircraft[index].groundSpeed + increase)
+        } else if aircraft[index].groundSpeed > speedTarget {
+            let decrease = max(1, Int((Double(dt) * 10.0).rounded()))
+            aircraft[index].groundSpeed = max(speedTarget, aircraft[index].groundSpeed - decrease)
+        }
+
+        let levelTarget = strips[stripIndex].selectedLevel
+        if aircraft[index].currentLevel != levelTarget {
+            let direction = levelTarget > aircraft[index].currentLevel ? 1 : -1
+            let progressKey = aircraftID
+            let verticalRateFLPerSecond = 0.2
+            verticalProgressByAircraft[progressKey, default: 0] += verticalRateFLPerSecond * Double(dt)
+
+            while verticalProgressByAircraft[progressKey, default: 0] >= 1.0,
+                  aircraft[index].currentLevel != levelTarget {
+                aircraft[index].currentLevel += direction
+                verticalProgressByAircraft[progressKey, default: 0] -= 1.0
+            }
+
+            if aircraft[index].currentLevel != levelTarget {
+                aircraft[index].trend = direction > 0 ? .climb : .descend
+            } else {
+                aircraft[index].trend = .level
+            }
+        } else {
+            verticalProgressByAircraft[aircraftID] = 0
+            aircraft[index].trend = .level
+        }
     }
 
     func sendInstruction(stripID: UUID, changedFields: Set<InstructionChange> = []) {
