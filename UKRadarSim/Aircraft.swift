@@ -36,6 +36,7 @@ struct Aircraft: Identifiable {
     var selectedLevel: Int
     var trend: VerticalTrend
 
+    var aircraftType: String
     var destination: String
     var isInbound: Bool
     var approachCaptured: Bool = false

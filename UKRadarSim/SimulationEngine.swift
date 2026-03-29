@@ -21,49 +21,21 @@ class SimulationEngine: ObservableObject {
     private let centerlineStart = CGPoint(x: 180, y: 576)
     private let runwayThreshold = CGPoint(x: 790, y: 232)
     private var verticalProgressByAircraft: [UUID: Double] = [:]
+    private let startupScenario: SimulationScenario
 
     init(geometry: RadarGeometry = .default) {
         self.geometry = geometry
         setupTestAircraft()
     }
 
-    private func setupTestAircraft() {
-        aircraft = [
-            Aircraft(
-                callsign: "EZY15WY",
-                trueX: 240,
-                trueY: 310,
-                displayX: 240,
-                displayY: 310,
-                heading: 45,
-                groundSpeed: 360,
-                currentLevel: 107,
-                selectedLevel: 80,
-                trend: .descend,
-                destination: "KK",
-                isInbound: true
-            ),
-            Aircraft(
-                callsign: "BAW214",
-                trueX: 530,
-                trueY: 450,
-                displayX: 530,
-                displayY: 450,
-                heading: 230,
-                groundSpeed: 280,
-                currentLevel: 40,
-                selectedLevel: 50,
-                trend: .climb,
-                destination: "EGLL",
-                isInbound: false
-            )
-        ]
+    private func loadStartupTraffic() {
+        aircraft = ScenarioLoader.loadAircraft(from: startupScenario)
 
         strips = aircraft.map { item in
             EFPSStrip(
                 aircraftID: item.id,
                 callsign: item.callsign,
-                aircraftType: item.isInbound ? "A320" : "B738",
+                aircraftType: item.aircraftType,
                 destination: item.destination,
                 isInbound: item.isInbound,
                 bay: item.isInbound ? .inbound : .outbound,
