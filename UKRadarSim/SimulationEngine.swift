@@ -461,7 +461,7 @@ class SimulationEngine: ObservableObject {
     }
 
     private func moveAngle(_ current: Double, toward target: Double, maxDelta: Double) -> Double {
-        let delta = ((current - target + 540).truncatingRemainder(dividingBy: 360)) - 180
+        let delta = ((target - current + 540).truncatingRemainder(dividingBy: 360)) - 180
         let clamped = min(max(delta, -maxDelta), maxDelta)
         var adjusted = current + clamped
 
