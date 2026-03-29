@@ -72,7 +72,12 @@ final class VoiceReadbackService {
             ? changedFields.contains(.speed)
             : strip.lastIssuedSpeed != strip.selectedSpeed
         if includeSpeed && strip.lastIssuedSpeed != strip.selectedSpeed {
-            let speedVerb = strip.selectedSpeed < strip.lastIssuedSpeed ? "reduce" : "increase"
+            let speedVerb: String
+            if let lastIssuedSpeed = strip.lastIssuedSpeed {
+                speedVerb = strip.selectedSpeed < lastIssuedSpeed ? "reduce" : "increase"
+            } else {
+                speedVerb = "maintain"
+            }
             segments.append("\(speedVerb) speed \(digitWise(strip.selectedSpeed)) knots")
         }
 
@@ -134,7 +139,7 @@ final class VoiceReadbackService {
         }
     }
 
-    private func approachSegment(for approachType: String) -> String {
+    nonisolated private func approachSegment(for approachType: String) -> String {
         switch approachType.uppercased() {
         case "ILS":
             return "for I L S approach"
@@ -149,7 +154,7 @@ final class VoiceReadbackService {
         }
     }
 
-    private func spokenCallsign(from callsign: String) -> String {
+    nonisolated private func spokenCallsign(from callsign: String) -> String {
         let prefix = String(callsign.prefix(3)).uppercased()
         let suffix = String(callsign.dropFirst(3))
 
@@ -170,7 +175,7 @@ final class VoiceReadbackService {
         return "\(spokenPrefix) \(spokenSuffix)"
     }
 
-    private func turnDirection(from current: Int, to target: Int) -> String {
+    nonisolated private func turnDirection(from current: Int, to target: Int) -> String {
         let normalizedCurrent = normalizedHeading(current)
         let normalizedTarget = normalizedHeading(target)
         let clockwiseDelta = (normalizedTarget - normalizedCurrent + 360) % 360
@@ -179,16 +184,16 @@ final class VoiceReadbackService {
         return clockwiseDelta <= counterclockwiseDelta ? "right" : "left"
     }
 
-    private func normalizedHeading(_ heading: Int) -> Int {
+    nonisolated private func normalizedHeading(_ heading: Int) -> Int {
         (heading % 360 + 360) % 360
     }
 
-    private func digitWise(_ value: Int, width: Int? = nil) -> String {
+    nonisolated private func digitWise(_ value: Int, width: Int? = nil) -> String {
         let stringValue = width.map { String(format: "%0\($0)d", value) } ?? String(value)
         return stringValue.map { spokenToken(for: String($0)) }.joined(separator: " ")
     }
 
-    private func spokenHeading(_ heading: Int) -> String {
+    nonisolated private func spokenHeading(_ heading: Int) -> String {
         let normalized = normalizedHeading(heading)
         let headingDigits = digitWise(normalized, width: 3)
 
@@ -199,7 +204,7 @@ final class VoiceReadbackService {
         return headingDigits
     }
 
-    private func spokenAltitude(_ feet: Int) -> String {
+    nonisolated private func spokenAltitude(_ feet: Int) -> String {
         if feet <= 0 {
             return "zero"
         }
@@ -223,7 +228,7 @@ final class VoiceReadbackService {
         return digitWise(feet)
     }
 
-    private func spokenCardinal(_ value: Int) -> String {
+    nonisolated private func spokenCardinal(_ value: Int) -> String {
         switch value {
         case 0: return "zero"
         case 1: return "one"
@@ -262,7 +267,7 @@ final class VoiceReadbackService {
         }
     }
 
-    private func spokenToken(for token: String) -> String {
+    nonisolated private func spokenToken(for token: String) -> String {
         switch token.uppercased() {
         case "0": return "zero"
         case "1": return "one"
