@@ -194,7 +194,7 @@ struct MainRadarView: View {
             }
 
             HStack(spacing: 8) {
-                Label("Airspace overlays are simulator approximations (not for real-world navigation).", systemImage: "info.circle")
+                Label("Airspace overlays use shared UK sector segments for consistency (sim use only, not navigation).", systemImage: "info.circle")
                     .foregroundColor(.white.opacity(0.7))
                     .font(.caption2.weight(.medium))
                     .lineLimit(2)

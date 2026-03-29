@@ -166,16 +166,31 @@ struct TerrainSector {
 }
 
 enum AirportMapCatalog {
-    /// Stylised sector geometry tuned for gameplay readability.
-    /// These coordinates are intentionally simplified and are **not**
-    /// authoritative aeronautical chart data.
+    /// Baseline geometry for each airport view.
+    /// Controlled-airspace overlays are injected from shared UK segments so airports
+    /// in the same region render a consistent structure.
     static func geometry(for airportICAO: String) -> RadarGeometry {
+        let baseGeometry: RadarGeometry
         switch airportICAO {
-        case "EGLL": return heathrow
-        case "EGPF": return glasgow
-        case "EGPH": return edinburgh
-        default: return gatwick
+        case "EGLL": baseGeometry = heathrow
+        case "EGPF": baseGeometry = glasgow
+        case "EGPH": baseGeometry = edinburgh
+        default: baseGeometry = gatwick
         }
+
+        let overlays = UKControlledAirspaceData.overlays(for: airportICAO)
+
+        return RadarGeometry(
+            worldSize: baseGeometry.worldSize,
+            approachCourseHeading: baseGeometry.approachCourseHeading,
+            centerlineStartFraction: baseGeometry.centerlineStartFraction,
+            runwayThresholdFraction: baseGeometry.runwayThresholdFraction,
+            controlledAirspacePolygonFractions: overlays.boundary ?? baseGeometry.controlledAirspacePolygonFractions,
+            controlledAirspaceShelves: overlays.shelves.isEmpty ? baseGeometry.controlledAirspaceShelves : overlays.shelves,
+            surroundingAirways: baseGeometry.surroundingAirways,
+            terrainSectors: baseGeometry.terrainSectors,
+            wrapInset: baseGeometry.wrapInset
+        )
     }
 
     private static let gatwick = RadarGeometry(
