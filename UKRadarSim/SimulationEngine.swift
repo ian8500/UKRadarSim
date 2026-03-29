@@ -58,9 +58,24 @@ private struct TrackPredictor {
 }
 
 class SimulationEngine: ObservableObject {
+    struct SafetyAlert: Identifiable {
+        enum Severity {
+            case advisory
+            case warning
+        }
+
+        let id = UUID()
+        let callsignPair: String
+        let message: String
+        let severity: Severity
+    }
+
     @Published var aircraft: [Aircraft] = []
     @Published var strips: [EFPSStrip] = []
     @Published private(set) var isPaused = false
+    @Published private(set) var score = 100
+    @Published private(set) var activeAlerts: [SafetyAlert] = []
+    @Published private(set) var landedCount = 0
 
     private let truthUpdateInterval: CGFloat = 0.1
     private let radarUpdateInterval: CGFloat = 6.0
@@ -126,7 +141,18 @@ class SimulationEngine: ObservableObject {
             remainingStep -= truthDelta
         }
 
+        recalculateOpsState()
         isPaused = false
+    }
+
+    func resetScenario() {
+        verticalProgressByAircraft.removeAll()
+        elapsedSinceRadarUpdate = 0
+        score = 100
+        activeAlerts.removeAll()
+        landedCount = 0
+        loadStartupTraffic()
+        updateRadarDisplayedPositions()
     }
 
     private func updateAircraftTruth(dt: CGFloat) {
@@ -149,6 +175,8 @@ class SimulationEngine: ObservableObject {
             wrapAircraftIfNeeded(index: i)
             syncStripFromAircraft(at: i)
         }
+
+        landedCount = aircraft.filter(\.isLanded).count
     }
 
     private func updateRadarDisplayedPositions() {
@@ -441,5 +469,54 @@ class SimulationEngine: ObservableObject {
         if adjusted >= 360 { adjusted -= 360 }
 
         return adjusted
+    }
+
+    private func recalculateOpsState() {
+        var alerts: [SafetyAlert] = []
+        var computedScore = 100 + (landedCount * 5)
+
+        for firstIndex in aircraft.indices {
+            for secondIndex in aircraft.indices where secondIndex > firstIndex {
+                let first = aircraft[firstIndex]
+                let second = aircraft[secondIndex]
+
+                if first.isLanded || second.isLanded {
+                    continue
+                }
+
+                let levelDelta = abs(first.currentLevel - second.currentLevel)
+                let currentDistance = hypot(first.trueX - second.trueX, first.trueY - second.trueY)
+
+                if levelDelta <= 10 && currentDistance < 40 {
+                    alerts.append(
+                        SafetyAlert(
+                            callsignPair: "\(first.callsign)/\(second.callsign)",
+                            message: "Immediate separation risk",
+                            severity: .warning
+                        )
+                    )
+                    computedScore -= 12
+                    continue
+                }
+
+                let projectedFirst = predictor.predictedPosition(for: first, lookaheadSeconds: 90)
+                let projectedSecond = predictor.predictedPosition(for: second, lookaheadSeconds: 90)
+                let projectedDistance = hypot(projectedFirst.x - projectedSecond.x, projectedFirst.y - projectedSecond.y)
+
+                if levelDelta <= 20 && projectedDistance < 60 {
+                    alerts.append(
+                        SafetyAlert(
+                            callsignPair: "\(first.callsign)/\(second.callsign)",
+                            message: "Predicted loss of separation in 90s",
+                            severity: .advisory
+                        )
+                    )
+                    computedScore -= 5
+                }
+            }
+        }
+
+        score = max(0, computedScore)
+        activeAlerts = alerts
     }
 }

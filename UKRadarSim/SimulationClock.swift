@@ -3,6 +3,8 @@ import CoreGraphics
 
 final class SimulationClock: ObservableObject {
     @Published private(set) var isRunning = false
+    @Published private(set) var elapsedSeconds: TimeInterval = 0
+    @Published var speedMultiplier: Double = 1.0
 
     private weak var simulationEngine: SimulationEngine?
     private var timer: Timer?
@@ -21,7 +23,10 @@ final class SimulationClock: ObservableObject {
         guard !isRunning else { return }
         let interval = tickInterval
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            self?.simulationEngine?.step(dt: CGFloat(interval))
+            guard let self else { return }
+            let scaledDelta = interval * self.speedMultiplier
+            self.simulationEngine?.step(dt: CGFloat(scaledDelta))
+            self.elapsedSeconds += scaledDelta
         }
         isRunning = true
     }
@@ -38,5 +43,9 @@ final class SimulationClock: ObservableObject {
         timer?.invalidate()
         timer = nil
         isRunning = false
+    }
+
+    func reset() {
+        elapsedSeconds = 0
     }
 }
