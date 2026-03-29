@@ -67,7 +67,11 @@ class SimulationEngine: ObservableObject {
                 selectedSpeed: item.groundSpeed,
                 approachType: item.isInbound ? "ILS" : "SID",
                 approachCleared: false,
-                instructionLog: []
+                instructionLog: [],
+                lastIssuedLevel: nil,
+                lastIssuedHeading: nil,
+                lastIssuedSpeed: nil,
+                lastIssuedApproachType: nil
             )
         }
     }
@@ -132,10 +136,20 @@ class SimulationEngine: ObservableObject {
             return
         }
 
+        let instruction = VoiceReadbackService.shared.buildIssuedInstruction(for: strips[stripIndex])
+        guard !instruction.isEmpty else {
+            strips[stripIndex].instructionLog.insert("\(strips[stripIndex].callsign) | NO NEW INSTRUCTION", at: 0)
+            return
+        }
+
         let strip = strips[stripIndex]
-        let phraseology = VoiceReadbackService.shared.buildCAAReadback(for: strip)
+        let phraseology = VoiceReadbackService.shared.buildCAAReadback(for: strip, instruction: instruction)
 
         strips[stripIndex].instructionLog.insert(phraseology, at: 0)
+        strips[stripIndex].lastIssuedLevel = strip.selectedLevel
+        strips[stripIndex].lastIssuedHeading = strip.selectedHeading
+        strips[stripIndex].lastIssuedSpeed = strip.selectedSpeed
+        strips[stripIndex].lastIssuedApproachType = strip.approachType
         VoiceReadbackService.shared.speakReadback(for: strip)
     }
 

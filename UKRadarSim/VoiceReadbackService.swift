@@ -17,7 +17,12 @@ final class VoiceReadbackService {
     private init() {}
 
     func speakReadback(for strip: EFPSStrip) {
-        let phraseology = buildCAAReadback(for: strip)
+        let instruction = buildIssuedInstruction(for: strip)
+        guard !instruction.isEmpty else {
+            return
+        }
+
+        let phraseology = buildCAAReadback(for: strip, instruction: instruction)
         let utterance = AVSpeechUtterance(string: phraseology)
         utterance.voice = voice(for: strip.callsign)
         utterance.rate = 0.47
@@ -26,42 +31,44 @@ final class VoiceReadbackService {
         synthesizer.speak(utterance)
     }
 
-    func buildCAAReadback(for strip: EFPSStrip) -> String {
-        let callsign = strip.callsign
-        let levelSegment: String
-        let selected = strip.selectedLevel
-        let current = strip.currentLevel
+    func buildIssuedInstruction(for strip: EFPSStrip) -> [String] {
+        var segments: [String] = []
 
-        let levelValue: String = selected < 70
-            ? "altitude \(selected * 100) feet"
-            : "flight level \(selected)"
+        if strip.lastIssuedLevel != strip.selectedLevel {
+            let selected = strip.selectedLevel
+            let current = strip.currentLevel
+            let levelValue: String = selected < 70
+                ? "altitude \(digitWise(selected * 100)) feet"
+                : "flight level \(digitWise(selected))"
 
-        if selected > current {
-            levelSegment = "climb \(levelValue)"
-        } else if selected < current {
-            levelSegment = "descend \(levelValue)"
-        } else {
-            levelSegment = "maintain \(levelValue)"
+            if selected > current {
+                segments.append("climb \(levelValue)")
+            } else if selected < current {
+                segments.append("descend \(levelValue)")
+            } else {
+                segments.append("maintain \(levelValue)")
+            }
         }
 
-        let headingSegment = "turn left heading \(String(format: "%03d", strip.selectedHeading))"
-        let speedSegment = "reduce speed \(strip.selectedSpeed) knots"
-
-        let approachSegment: String
-        switch strip.approachType.uppercased() {
-        case "ILS":
-            approachSegment = "for ILS approach"
-        case "RNAV":
-            approachSegment = "for RNAV approach"
-        case "VISUAL":
-            approachSegment = "for visual approach"
-        case "LOC":
-            approachSegment = "for localizer approach"
-        default:
-            approachSegment = "for \(strip.approachType)"
+        if strip.lastIssuedHeading != strip.selectedHeading {
+            segments.append("turn left heading \(digitWise(strip.selectedHeading, width: 3))")
         }
 
-        return "\(callsign), roger, \(levelSegment), \(headingSegment), \(speedSegment), \(approachSegment)."
+        if strip.lastIssuedSpeed != strip.selectedSpeed {
+            segments.append("reduce speed \(digitWise(strip.selectedSpeed)) knots")
+        }
+
+        if strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased() {
+            segments.append(approachSegment(for: strip.approachType))
+        }
+
+        return segments
+    }
+
+    func buildCAAReadback(for strip: EFPSStrip, instruction: [String]) -> String {
+        let callsign = spokenCallsign(from: strip.callsign)
+        let instructionText = instruction.joined(separator: ", ")
+        return "\(callsign), roger, \(instructionText)."
     }
 
     private func voice(for callsign: String) -> AVSpeechSynthesisVoice? {
@@ -93,6 +100,90 @@ final class VoiceReadbackService {
             return .dutch
         default:
             return .american
+        }
+    }
+
+    private func approachSegment(for approachType: String) -> String {
+        switch approachType.uppercased() {
+        case "ILS":
+            return "for ILS approach"
+        case "RNAV":
+            return "for RNAV approach"
+        case "VISUAL":
+            return "for visual approach"
+        case "LOC":
+            return "for localizer approach"
+        default:
+            return "for \(approachType)"
+        }
+    }
+
+    private func spokenCallsign(from callsign: String) -> String {
+        let prefix = String(callsign.prefix(3)).uppercased()
+        let suffix = String(callsign.dropFirst(3))
+
+        let spokenPrefix: String
+        switch prefix {
+        case "BAW":
+            spokenPrefix = "Speedbird"
+        case "EZY":
+            spokenPrefix = "easyJet"
+        default:
+            spokenPrefix = prefix
+        }
+
+        let spokenSuffix = suffix.map { String($0) }.map(spokenToken(for:)).joined(separator: " ")
+        if spokenSuffix.isEmpty {
+            return spokenPrefix
+        }
+        return "\(spokenPrefix) \(spokenSuffix)"
+    }
+
+    private func digitWise(_ value: Int, width: Int? = nil) -> String {
+        let stringValue = width.map { String(format: "%0\($0)d", value) } ?? String(value)
+        return stringValue.map { spokenToken(for: String($0)) }.joined(separator: " ")
+    }
+
+    private func spokenToken(for token: String) -> String {
+        switch token.uppercased() {
+        case "0": return "zero"
+        case "1": return "one"
+        case "2": return "two"
+        case "3": return "three"
+        case "4": return "four"
+        case "5": return "five"
+        case "6": return "six"
+        case "7": return "seven"
+        case "8": return "eight"
+        case "9": return "nine"
+        case "A": return "alpha"
+        case "B": return "bravo"
+        case "C": return "charlie"
+        case "D": return "delta"
+        case "E": return "echo"
+        case "F": return "foxtrot"
+        case "G": return "golf"
+        case "H": return "hotel"
+        case "I": return "india"
+        case "J": return "juliet"
+        case "K": return "kilo"
+        case "L": return "lima"
+        case "M": return "mike"
+        case "N": return "november"
+        case "O": return "oscar"
+        case "P": return "papa"
+        case "Q": return "quebec"
+        case "R": return "romeo"
+        case "S": return "sierra"
+        case "T": return "tango"
+        case "U": return "uniform"
+        case "V": return "victor"
+        case "W": return "whiskey"
+        case "X": return "x-ray"
+        case "Y": return "yankee"
+        case "Z": return "zulu"
+        default:
+            return token
         }
     }
 
