@@ -23,7 +23,7 @@ struct RadarCanvasView: View {
                     radarBackground
                     radarMap(in: geo.size)
                     vectorLayer(in: geo.size)
-                    aircraftLayer(in: geo.size)
+                    aircraftLayer(in: geo.size, zoomScale: effectiveZoom)
                 }
                 .scaleEffect(effectiveZoom)
                 .gesture(
@@ -131,7 +131,7 @@ struct RadarCanvasView: View {
 
     @ViewBuilder
     private func radarMap(in size: CGSize) -> some View {
-        if let preRenderedMapImage {
+        if let preRenderedMapImage, effectiveZoom == 1 {
             preRenderedMapImage
                 .resizable()
                 .interpolation(.none)
@@ -190,7 +190,7 @@ struct RadarCanvasView: View {
         .allowsHitTesting(false)
     }
 
-    private func aircraftLayer(in size: CGSize) -> some View {
+    private func aircraftLayer(in size: CGSize, zoomScale: CGFloat) -> some View {
         ForEach(aircraft) { aircraft in
             AircraftTrackView(
                 aircraft: aircraft,
@@ -198,7 +198,8 @@ struct RadarCanvasView: View {
                     inViewFromWorld: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
                     viewSize: size
                 ),
-                historyPoints: aircraft.historyDots.map { geometry.point(inViewFromWorld: $0, viewSize: size) }
+                historyPoints: aircraft.historyDots.map { geometry.point(inViewFromWorld: $0, viewSize: size) },
+                zoomScale: zoomScale
             )
         }
     }
@@ -378,6 +379,7 @@ struct AircraftTrackView: View {
     let aircraft: Aircraft
     let displayPoint: CGPoint
     let historyPoints: [CGPoint]
+    let zoomScale: CGFloat
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -386,21 +388,25 @@ struct AircraftTrackView: View {
                     .fill(Color.white.opacity(dotOpacity(for: index)))
                     .frame(width: 4, height: 4)
                     .position(x: point.x, y: point.y)
+                    .scaleEffect(1 / zoomScale)
             }
 
             Circle()
                 .fill(Color.white)
                 .frame(width: 6, height: 6)
                 .position(x: displayPoint.x, y: displayPoint.y)
+                .scaleEffect(1 / zoomScale)
 
             Path { path in
                 path.move(to: CGPoint(x: displayPoint.x + 4, y: displayPoint.y - 4))
                 path.addLine(to: CGPoint(x: displayPoint.x + 26, y: displayPoint.y - 22))
             }
             .stroke(Color.white.opacity(0.85), lineWidth: 1)
+            .scaleEffect(1 / zoomScale)
 
             GatwickStyleLabel(aircraft: aircraft)
                 .position(x: displayPoint.x + 92, y: displayPoint.y - 42)
+                .scaleEffect(1 / zoomScale)
         }
     }
 
