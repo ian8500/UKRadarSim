@@ -2,43 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack(spacing: 0) {
-            // Radar area
-            ZStack {
-                Color(red: 0.02, green: 0.18, blue: 0.22)
-                    .ignoresSafeArea()
-
-                Text("RADAR AREA")
-                    .font(.largeTitle)
-                    .foregroundColor(.white.opacity(0.8))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // Toolbar
-            HStack(spacing: 16) {
-                ToolbarButton(title: "Layers")
-                ToolbarButton(title: "Vectors")
-                ToolbarButton(title: "Wake")
-                ToolbarButton(title: "Pause")
-                Spacer()
-                Text("Score: 0")
-                    .foregroundColor(.white)
-                    .font(.headline)
-            }
-            .padding()
-            .background(Color(red: 0.08, green: 0.10, blue: 0.12))
-
-            // Strip area
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    StripCard(callsign: "EZY15WY", level: "F107", selectedLevel: "080", destination: "KK")
-                    StripCard(callsign: "BAW123", level: "F090", selectedLevel: "070", destination: "KK")
-                    StripCard(callsign: "RYR82AB", level: "F120", selectedLevel: "100", destination: "KK")
-                }
-                .padding()
-            }
-            .background(Color(red: 0.12, green: 0.14, blue: 0.16))
-        }
+        MainRadarView()
     }
 }
 
