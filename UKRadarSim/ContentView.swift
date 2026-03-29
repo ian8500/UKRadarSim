@@ -39,20 +39,9 @@ private struct HomeView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("UK Radar Sim", systemImage: "dot.radiowaves.forward")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.secondary)
-
-                            Text("Control UK airspace with confidence.")
-                                .font(.largeTitle.weight(.bold))
-
-                            Text("Pick a traffic profile and airport, then launch directly into a focused radar session.")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-
+                        heroHeader
                         quickStatsCard
+                        productHighlightsCard
                         sessionSetupCard
                         startButton
                     }
@@ -66,6 +55,7 @@ private struct HomeView: View {
     private var quickStatsCard: some View {
         HStack(spacing: 12) {
             DashboardStat(title: "Airports", value: "\(appState.airports.count)", symbol: "airplane.departure")
+            DashboardStat(title: "Weather", value: "\(appState.weatherPacks.count)", symbol: "cloud.sun")
             DashboardStat(title: "Difficulty", value: appState.selectedDifficulty.title, symbol: "speedometer")
             DashboardStat(
                 title: "Access",
@@ -73,6 +63,51 @@ private struct HomeView: View {
                 symbol: appState.featureAccess.hasPremiumEntitlements ? "star.circle.fill" : "star.circle"
             )
         }
+    }
+
+    private var heroHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("UK Radar Sim", systemImage: "dot.radiowaves.forward")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Text("Professional radar training, redesigned.")
+                .font(.largeTitle.weight(.bold))
+
+            Text("Build realistic ATC workflows with guided scenarios, faster controls, and a cleaner command interface.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 10) {
+                TagView(title: "Live Conflict Alerts", symbol: "exclamationmark.triangle")
+                TagView(title: "Scenario Packs", symbol: "shippingbox")
+                TagView(title: "Premium Ready", symbol: "star.fill")
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+        }
+    }
+
+    private var productHighlightsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Why users subscribe")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Premium airports unlock advanced traffic complexity.", systemImage: "airplane.circle")
+                Label("Weather packs add variety for approach and sequencing practice.", systemImage: "cloud.rain")
+                Label("Professional-style dashboard surfaces risk and landing performance.", systemImage: "gauge.with.dots.needle.67percent")
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var sessionSetupCard: some View {
@@ -123,6 +158,45 @@ private struct HomeView: View {
                     }
                 }
             }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Weather Pack")
+                    .font(.subheadline.weight(.semibold))
+
+                Picker("Weather Pack", selection: $appState.selectedWeatherPackID) {
+                    ForEach(appState.weatherPacks) { pack in
+                        let locked = !appState.canAccess(weatherPack: pack)
+                        Text(locked ? "\(pack.name) (Premium)" : pack.name)
+                            .tag(pack.id)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                if let pack = appState.selectedWeatherPack {
+                    if appState.canAccess(weatherPack: pack) {
+                        Text("Selected weather: \(pack.name)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("\(pack.name) is premium. Upgrade to enable this pack.")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+
+            Divider()
+
+            Toggle(
+                "Preview Premium Experience",
+                isOn: Binding(
+                    get: { appState.featureAccess.hasPremiumEntitlements },
+                    set: { appState.featureAccess.subscriptionTier = $0 ? .premium : .free }
+                )
+            )
+            .font(.subheadline.weight(.semibold))
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -147,6 +221,22 @@ private struct HomeView: View {
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .disabled(appState.selectedAirport.map { !appState.canAccess(airport: $0) } ?? true)
+    }
+}
+
+private struct TagView: View {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+            Text(title)
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.2), in: Capsule())
     }
 }
 

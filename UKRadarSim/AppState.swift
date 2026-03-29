@@ -65,6 +65,7 @@ final class AppState: ObservableObject {
     @Published var activeScreen: AppScreen = .home
     @Published var selectedDifficulty: DifficultyLevel = .standard
     @Published var selectedAirportICAO: String = "EGKK"
+    @Published var selectedWeatherPackID: String = "standard-uk"
 
     @Published var featureAccess = FeatureAccess()
 
@@ -82,6 +83,10 @@ final class AppState: ObservableObject {
 
     var selectedAirport: AirportConfig? {
         airports.first { $0.icao == selectedAirportICAO }
+    }
+
+    var selectedWeatherPack: WeatherPack? {
+        weatherPacks.first { $0.id == selectedWeatherPackID }
     }
 
     func canAccess(airport: AirportConfig) -> Bool {
