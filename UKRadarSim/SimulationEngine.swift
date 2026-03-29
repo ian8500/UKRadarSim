@@ -90,6 +90,7 @@ class SimulationEngine: ObservableObject {
 
             aircraft[i].trueX += cos(headingRad) * distance
             aircraft[i].trueY -= sin(headingRad) * distance
+            updateVerticalProfile(for: i)
 
             wrapAircraftIfNeeded(index: i)
             syncStripFromAircraft(at: i)
@@ -117,12 +118,17 @@ class SimulationEngine: ObservableObject {
         }
 
         strips[stripIndex].currentLevel = currentAircraft.currentLevel
+        strips[stripIndex].selectedLevel = currentAircraft.selectedLevel
+        strips[stripIndex].selectedHeading = Int(currentAircraft.heading)
+        strips[stripIndex].selectedSpeed = currentAircraft.groundSpeed
     }
 
     func sendInstruction(stripID: UUID) {
         guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
             return
         }
+
+        applyStripInstructionsToAircraft(strip: strips[stripIndex])
 
         let strip = strips[stripIndex]
         let instruction = [
@@ -143,5 +149,55 @@ class SimulationEngine: ObservableObject {
         }
 
         strips[stripIndex].bay = bay
+    }
+
+    private func applyStripInstructionsToAircraft(strip: EFPSStrip) {
+        guard let aircraftIndex = aircraft.firstIndex(where: { $0.id == strip.aircraftID }) else {
+            return
+        }
+
+        aircraft[aircraftIndex].selectedLevel = strip.selectedLevel
+        aircraft[aircraftIndex].heading = Double(normalizedHeading(strip.selectedHeading))
+        aircraft[aircraftIndex].groundSpeed = strip.selectedSpeed
+        aircraft[aircraftIndex].trend = trendForLevelChange(
+            currentLevel: aircraft[aircraftIndex].currentLevel,
+            selectedLevel: aircraft[aircraftIndex].selectedLevel
+        )
+    }
+
+    private func updateVerticalProfile(for index: Int) {
+        let currentLevel = aircraft[index].currentLevel
+        let targetLevel = aircraft[index].selectedLevel
+
+        guard currentLevel != targetLevel else {
+            aircraft[index].trend = .level
+            return
+        }
+
+        let climbRate = 1
+        if currentLevel < targetLevel {
+            aircraft[index].currentLevel = min(currentLevel + climbRate, targetLevel)
+        } else {
+            aircraft[index].currentLevel = max(currentLevel - climbRate, targetLevel)
+        }
+
+        aircraft[index].trend = trendForLevelChange(
+            currentLevel: aircraft[index].currentLevel,
+            selectedLevel: targetLevel
+        )
+    }
+
+    private func trendForLevelChange(currentLevel: Int, selectedLevel: Int) -> VerticalTrend {
+        if currentLevel < selectedLevel {
+            return .climb
+        }
+        if currentLevel > selectedLevel {
+            return .descend
+        }
+        return .level
+    }
+
+    private func normalizedHeading(_ heading: Int) -> Int {
+        ((heading % 360) + 360) % 360
     }
 }
