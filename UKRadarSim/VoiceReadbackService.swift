@@ -82,7 +82,7 @@ final class VoiceReadbackService {
 
 
         if changedFields.contains(.ilsClearance) {
-            segments.append("cleared ILS approach")
+            segments.append("cleared I L S approach")
         }
 
         return segments
@@ -130,7 +130,7 @@ final class VoiceReadbackService {
     private func approachSegment(for approachType: String) -> String {
         switch approachType.uppercased() {
         case "ILS":
-            return "for ILS approach"
+            return "for I L S approach"
         case "RNAV":
             return "for RNAV approach"
         case "VISUAL":
