@@ -5,9 +5,20 @@ struct MainRadarView: View {
     @StateObject private var sim: SimulationEngine
     @StateObject private var clock: SimulationClock
 
+    let selectedAirport: AirportConfig
+    let difficulty: DifficultyLevel
+    let onExit: () -> Void
+
     private let geometry = RadarGeometry.default
 
-    init() {
+    init(
+        selectedAirport: AirportConfig,
+        difficulty: DifficultyLevel,
+        onExit: @escaping () -> Void = {}
+    ) {
+        self.selectedAirport = selectedAirport
+        self.difficulty = difficulty
+        self.onExit = onExit
         let radarGeometry = RadarGeometry.default
         let simulationEngine = SimulationEngine(
             geometry: radarGeometry,
@@ -39,6 +50,16 @@ struct MainRadarView: View {
 
     private var toolbar: some View {
         HStack(spacing: 16) {
+            Button("Home") {
+                onExit()
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.blue.opacity(0.25))
+            .cornerRadius(8)
+
             ToolbarButton(title: "Layers")
             vectorsMenu
             ToolbarButton(title: "Wake")
@@ -56,9 +77,14 @@ struct MainRadarView: View {
 
             Spacer()
 
-            Text("Score: 0")
-                .foregroundColor(.white)
-                .font(.headline)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(selectedAirport.icao) • \(difficulty.title)")
+                    .foregroundColor(.white.opacity(0.85))
+                    .font(.caption.weight(.semibold))
+                Text("Score: 0")
+                    .foregroundColor(.white)
+                    .font(.headline)
+            }
         }
         .padding()
         .background(Color(red: 0.08, green: 0.10, blue: 0.12))
@@ -117,6 +143,9 @@ struct MainRadarView: View {
 }
 
 #Preview {
-    MainRadarView()
-        .environmentObject(AppState())
+    MainRadarView(
+        selectedAirport: AirportConfig(icao: "EGKK", name: "London Gatwick", isPremium: nil),
+        difficulty: .standard
+    )
+    .environmentObject(AppState())
 }
