@@ -1,6 +1,13 @@
 import Foundation
 import CoreGraphics
 
+enum InstructionChange: Hashable {
+    case level
+    case heading
+    case speed
+    case approachType
+}
+
 class SimulationEngine: ObservableObject {
     @Published var aircraft: [Aircraft] = []
     @Published var strips: [EFPSStrip] = []
@@ -151,12 +158,15 @@ class SimulationEngine: ObservableObject {
         strips[stripIndex].isLanded = currentAircraft.isLanded
     }
 
-    func sendInstruction(stripID: UUID) {
+    func sendInstruction(stripID: UUID, changedFields: Set<InstructionChange> = []) {
         guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
             return
         }
 
-        let instruction = VoiceReadbackService.shared.buildIssuedInstruction(for: strips[stripIndex])
+        let instruction = VoiceReadbackService.shared.buildIssuedInstruction(
+            for: strips[stripIndex],
+            changedFields: changedFields
+        )
         guard !instruction.isEmpty else {
             strips[stripIndex].instructionLog.insert("\(strips[stripIndex].callsign) | NO NEW INSTRUCTION", at: 0)
             return
@@ -170,7 +180,7 @@ class SimulationEngine: ObservableObject {
         strips[stripIndex].lastIssuedHeading = strip.selectedHeading
         strips[stripIndex].lastIssuedSpeed = strip.selectedSpeed
         strips[stripIndex].lastIssuedApproachType = strip.approachType
-        VoiceReadbackService.shared.speakReadback(for: strip)
+        VoiceReadbackService.shared.speakReadback(phraseology: phraseology, callsign: strip.callsign)
     }
 
     func flitStrip(stripID: UUID, to bay: StripBay) {

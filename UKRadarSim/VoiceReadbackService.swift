@@ -16,15 +16,13 @@ final class VoiceReadbackService {
 
     private init() {}
 
-    func speakReadback(for strip: EFPSStrip) {
-        let instruction = buildIssuedInstruction(for: strip)
-        guard !instruction.isEmpty else {
+    func speakReadback(phraseology: String, callsign: String) {
+        guard !phraseology.isEmpty else {
             return
         }
 
-        let phraseology = buildCAAReadback(for: strip, instruction: instruction)
         let utterance = AVSpeechUtterance(string: phraseology)
-        utterance.voice = voice(for: strip.callsign)
+        utterance.voice = voice(for: callsign)
         utterance.rate = 0.44
         utterance.pitchMultiplier = 0.96
         utterance.volume = 0.95
@@ -33,14 +31,18 @@ final class VoiceReadbackService {
         synthesizer.speak(utterance)
     }
 
-    func buildIssuedInstruction(for strip: EFPSStrip) -> [String] {
+    func buildIssuedInstruction(for strip: EFPSStrip, changedFields: Set<InstructionChange> = []) -> [String] {
         var segments: [String] = []
+        let useExplicitChanges = !changedFields.isEmpty
 
-        if strip.lastIssuedLevel != strip.selectedLevel {
+        let includeLevel = useExplicitChanges
+            ? changedFields.contains(.level)
+            : strip.lastIssuedLevel != strip.selectedLevel
+        if includeLevel && strip.lastIssuedLevel != strip.selectedLevel {
             let selected = strip.selectedLevel
             let current = strip.currentLevel
             let levelValue: String = selected < 70
-                ? "altitude \(digitWise(selected * 100)) feet"
+                ? "altitude \(spokenAltitude(selected * 100)) feet"
                 : "flight level \(digitWise(selected))"
 
             if selected > current {
@@ -52,15 +54,24 @@ final class VoiceReadbackService {
             }
         }
 
-        if strip.lastIssuedHeading != strip.selectedHeading {
+        let includeHeading = useExplicitChanges
+            ? changedFields.contains(.heading)
+            : strip.lastIssuedHeading != strip.selectedHeading
+        if includeHeading && strip.lastIssuedHeading != strip.selectedHeading {
             segments.append("turn left heading \(digitWise(strip.selectedHeading, width: 3))")
         }
 
-        if strip.lastIssuedSpeed != strip.selectedSpeed {
+        let includeSpeed = useExplicitChanges
+            ? changedFields.contains(.speed)
+            : strip.lastIssuedSpeed != strip.selectedSpeed
+        if includeSpeed && strip.lastIssuedSpeed != strip.selectedSpeed {
             segments.append("reduce speed \(digitWise(strip.selectedSpeed)) knots")
         }
 
-        if strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased() {
+        let includeApproach = useExplicitChanges
+            ? changedFields.contains(.approachType)
+            : strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased()
+        if includeApproach && strip.lastIssuedApproachType?.uppercased() != strip.approachType.uppercased() {
             segments.append(approachSegment(for: strip.approachType))
         }
 
@@ -70,7 +81,7 @@ final class VoiceReadbackService {
     func buildCAAReadback(for strip: EFPSStrip, instruction: [String]) -> String {
         let callsign = spokenCallsign(from: strip.callsign)
         let instructionText = instruction.joined(separator: ", ")
-        return "\(callsign), roger, \(instructionText)."
+        return "\(instructionText), \(callsign)."
     }
 
     private func voice(for callsign: String) -> AVSpeechSynthesisVoice? {
@@ -145,6 +156,69 @@ final class VoiceReadbackService {
     private func digitWise(_ value: Int, width: Int? = nil) -> String {
         let stringValue = width.map { String(format: "%0\($0)d", value) } ?? String(value)
         return stringValue.map { spokenToken(for: String($0)) }.joined(separator: " ")
+    }
+
+    private func spokenAltitude(_ feet: Int) -> String {
+        if feet <= 0 {
+            return "zero"
+        }
+
+        if feet % 1000 == 0 {
+            let thousands = feet / 1000
+            if thousands == 1 {
+                return "one thousand"
+            }
+            return "\(spokenCardinal(thousands)) thousand"
+        }
+
+        if feet % 100 == 0 {
+            let hundreds = feet / 100
+            if hundreds == 1 {
+                return "one hundred"
+            }
+            return "\(spokenCardinal(hundreds)) hundred"
+        }
+
+        return digitWise(feet)
+    }
+
+    private func spokenCardinal(_ value: Int) -> String {
+        switch value {
+        case 0: return "zero"
+        case 1: return "one"
+        case 2: return "two"
+        case 3: return "three"
+        case 4: return "four"
+        case 5: return "five"
+        case 6: return "six"
+        case 7: return "seven"
+        case 8: return "eight"
+        case 9: return "nine"
+        case 10: return "ten"
+        case 11: return "eleven"
+        case 12: return "twelve"
+        case 13: return "thirteen"
+        case 14: return "fourteen"
+        case 15: return "fifteen"
+        case 16: return "sixteen"
+        case 17: return "seventeen"
+        case 18: return "eighteen"
+        case 19: return "nineteen"
+        case 20: return "twenty"
+        case 30: return "thirty"
+        case 40: return "forty"
+        case 50: return "fifty"
+        case 60: return "sixty"
+        case 70: return "seventy"
+        case 80: return "eighty"
+        case 90: return "ninety"
+        case 21...99:
+            let tens = (value / 10) * 10
+            let ones = value % 10
+            return "\(spokenCardinal(tens)) \(spokenCardinal(ones))"
+        default:
+            return String(value)
+        }
     }
 
     private func spokenToken(for token: String) -> String {

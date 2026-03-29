@@ -40,7 +40,7 @@ private enum StripField: String, Identifiable {
 
 struct StripCard: View {
     @Binding var strip: EFPSStrip
-    let sendInstruction: () -> Void
+    let sendInstruction: (Set<InstructionChange>) -> Void
     let clearForApproach: () -> Void
     let flitStrip: (StripBay) -> Void
 
@@ -144,12 +144,12 @@ struct StripCard: View {
                 draftLevel = selected
             } onSend: {
                 strip.selectedLevel = draftLevel
-                sendInstruction()
+                sendInstruction([.level])
             }
         case .heading:
             HeadingPicker(selectedHeading: $draftHeading) {
                 strip.selectedHeading = draftHeading
-                sendInstruction()
+                sendInstruction([.heading])
                 activeField = nil
             }
         case .speed:
@@ -157,7 +157,7 @@ struct StripCard: View {
                 draftSpeed = selected
             } onSend: {
                 strip.selectedSpeed = draftSpeed
-                sendInstruction()
+                sendInstruction([.speed])
             }
         }
     }
@@ -371,7 +371,7 @@ private struct HeadingTick: View {
 struct StripBayColumn: View {
     let bay: StripBay
     @Binding var strips: [EFPSStrip]
-    let sendInstruction: (UUID) -> Void
+    let sendInstruction: (UUID, Set<InstructionChange>) -> Void
     let clearForApproach: (UUID) -> Void
     let flitStrip: (UUID, StripBay) -> Void
 
@@ -394,8 +394,8 @@ struct StripBayColumn: View {
                 ForEach(stripIndexes, id: \.self) { index in
                     StripCard(
                         strip: $strips[index],
-                        sendInstruction: {
-                            sendInstruction(strips[index].id)
+                        sendInstruction: { changedFields in
+                            sendInstruction(strips[index].id, changedFields)
                         },
                         clearForApproach: {
                             clearForApproach(strips[index].id)
