@@ -197,12 +197,10 @@ private struct MapOverlayRenderer: View {
                     style: StrokeStyle(lineWidth: 0.9, dash: [4, 4])
                 )
 
-                if !shelf.polygonFractions.isEmpty {
+                if showsControlledAirspaceBase, !shelf.polygonFractions.isEmpty {
                     let centroid = centroid(for: shelf.polygonFractions)
                     let point = geometry.point(inViewFromFraction: centroid, viewSize: size)
-                    let label = showsControlledAirspaceBase
-                        ? "BASE \(shelf.floorLabel)"
-                        : "\(shelf.floorLabel)-\(shelf.ceilingLabel)"
+                    let label = "\(shelf.floorLabel)-\(shelf.ceilingLabel)"
                     let text = Text(label)
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundColor(.cyan.opacity(0.95))
