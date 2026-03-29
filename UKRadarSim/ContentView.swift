@@ -54,36 +54,29 @@ struct StripCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                staticFieldCell(title: "CALL", value: strip.callsign)
-                staticFieldCell(title: "TYPE", value: strip.aircraftType)
+            HStack(spacing: 0) {
+                staticFieldCell(value: strip.callsign)
+                staticFieldCell(value: strip.aircraftType)
+                fieldCell(value: String(format: "%03d", strip.selectedHeading), field: .heading)
+                fieldCell(value: strip.levelDisplay, field: .level)
+                fieldCell(value: "\(strip.selectedSpeed)", field: .speed)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.black.opacity(0.25), lineWidth: 1)
+            )
+
+            HStack {
                 Button {
                     clearForApproach()
                 } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("APP")
-                            .font(.caption2.weight(.bold))
-                            .foregroundColor(.black.opacity(0.7))
-                        Text(approachStatusText)
-                            .font(.caption.weight(.semibold))
-                            .foregroundColor(.black)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .padding(.horizontal, 8)
-                    .background(Color.white.opacity(0.55))
-                    .cornerRadius(4)
+                    Text("APP \(approachStatusText)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.black)
                 }
                 .buttonStyle(.plain)
-            }
 
-            HStack(spacing: 8) {
-                fieldCell(title: "LVL", value: strip.levelDisplay, field: .level)
-                fieldCell(title: "HDG", value: String(format: "%03d", strip.selectedHeading), field: .heading)
-                fieldCell(title: "SPD", value: "\(strip.selectedSpeed)KT", field: .speed)
-            }
-
-            HStack {
                 Menu("Flit") {
                     ForEach(StripBay.allCases.filter { $0 != strip.bay }) { bay in
                         Button("To \(bay.rawValue)") {
@@ -109,7 +102,7 @@ struct StripCard: View {
             }
         }
         .padding(10)
-        .frame(width: 380, alignment: .leading)
+        .frame(width: 460, alignment: .leading)
         .background(
             strip.isInbound
                 ? Color(red: 0.91, green: 0.81, blue: 0.62)
@@ -162,39 +155,37 @@ struct StripCard: View {
         }
     }
 
-    private func staticFieldCell(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2.weight(.bold))
-                .foregroundColor(.black.opacity(0.7))
-            Text(value)
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.black)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        .padding(.horizontal, 8)
-        .background(Color.white.opacity(0.55))
-        .cornerRadius(4)
+    private func staticFieldCell(value: String) -> some View {
+        Text(value)
+            .font(.system(.body, design: .monospaced).weight(.semibold))
+            .foregroundColor(.black)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, minHeight: 46, alignment: .center)
+            .background(Color.white.opacity(0.55))
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(Color.black.opacity(0.25))
+                    .frame(width: 1)
+            }
     }
 
-    private func fieldCell(title: String, value: String, field: StripField) -> some View {
+    private func fieldCell(value: String, field: StripField) -> some View {
         Button {
             activeField = field
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption2.weight(.bold))
-                    .foregroundColor(.black.opacity(0.7))
-                Text(value)
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.black)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .padding(.horizontal, 8)
+            Text(value)
+                .font(.system(.body, design: .monospaced).weight(.semibold))
+                .foregroundColor(.black)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 46, alignment: .center)
             .background(Color.white.opacity(0.55))
-            .cornerRadius(4)
+            .overlay(alignment: .trailing) {
+                if field != .speed {
+                    Rectangle()
+                        .fill(Color.black.opacity(0.25))
+                        .frame(width: 1)
+                }
+            }
         }
         .buttonStyle(.plain)
     }
@@ -408,7 +399,7 @@ struct StripBayColumn: View {
             }
         }
         .padding()
-        .frame(width: 410, alignment: .topLeading)
+        .frame(width: 490, alignment: .topLeading)
         .background(Color(red: 0.18, green: 0.20, blue: 0.23).opacity(0.65))
         .cornerRadius(10)
     }
