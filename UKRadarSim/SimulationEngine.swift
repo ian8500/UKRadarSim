@@ -314,7 +314,9 @@ class SimulationEngine: ObservableObject {
     }
 
     private func moveAngle(_ current: Double, toward target: Double, maxDelta: Double) -> Double {
-        let delta = ((target - current + 540).truncatingRemainder(dividingBy: 360)) - 180
+        // Simulation heading geometry increases counterclockwise (screen/math convention),
+        // so we invert the standard compass delta to make "right" turn calls animate right.
+        let delta = ((current - target + 540).truncatingRemainder(dividingBy: 360)) - 180
         let clamped = min(max(delta, -maxDelta), maxDelta)
         var adjusted = current + clamped
         if adjusted < 0 { adjusted += 360 }
