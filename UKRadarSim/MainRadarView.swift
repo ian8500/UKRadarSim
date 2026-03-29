@@ -11,7 +11,7 @@ struct MainRadarView: View {
     let difficulty: DifficultyLevel
     let onExit: () -> Void
 
-    private let geometry = RadarGeometry.default
+    private let geometry: RadarGeometry
     private let speedOptions: [Double] = [0.5, 1.0, 2.0, 4.0]
 
     init(
@@ -22,7 +22,8 @@ struct MainRadarView: View {
         self.selectedAirport = selectedAirport
         self.difficulty = difficulty
         self.onExit = onExit
-        let radarGeometry = RadarGeometry.default
+        let radarGeometry = AirportMapCatalog.geometry(for: selectedAirport.icao)
+        self.geometry = radarGeometry
         let simulationEngine = SimulationEngine(
             geometry: radarGeometry,
             startupScenario: ScenarioLibrary.default

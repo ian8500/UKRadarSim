@@ -73,7 +73,8 @@ final class AppState: ObservableObject {
     @Published var airports: [AirportConfig] = [
         AirportConfig(icao: "EGKK", name: "London Gatwick", isPremium: nil),
         AirportConfig(icao: "EGLL", name: "London Heathrow", isPremium: true),
-        AirportConfig(icao: "EGCC", name: "Manchester", isPremium: true)
+        AirportConfig(icao: "EGPF", name: "Glasgow", isPremium: true),
+        AirportConfig(icao: "EGPH", name: "Edinburgh", isPremium: true)
     ]
 
     @Published var weatherPacks: [WeatherPack] = [

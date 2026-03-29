@@ -92,6 +92,8 @@ struct RadarGeometry {
     let centerlineStartFraction: CGPoint
     let runwayThresholdFraction: CGPoint
     let controlledAirspacePolygonFractions: [CGPoint]
+    let controlledAirspaceShelves: [AirspaceShelf]
+    let terrainSectors: [TerrainSector]
     let wrapInset: CGFloat
 
     static let `default` = RadarGeometry(
@@ -107,6 +109,8 @@ struct RadarGeometry {
             CGPoint(x: 0.70, y: 0.86),
             CGPoint(x: 0.22, y: 0.88)
         ],
+        controlledAirspaceShelves: [],
+        terrainSectors: [],
         wrapInset: 100
     )
 
@@ -140,4 +144,229 @@ struct RadarGeometry {
     func point(inViewFromFraction fraction: CGPoint, viewSize: CGSize) -> CGPoint {
         point(inViewFromWorld: point(inWorldFromFraction: fraction), viewSize: viewSize)
     }
+}
+
+
+struct AirspaceShelf {
+    let polygonFractions: [CGPoint]
+    let floorLabel: String
+    let ceilingLabel: String
+}
+
+struct TerrainSector {
+    let polygonFractions: [CGPoint]
+    let minimumAltitudeLabel: String
+}
+
+enum AirportMapCatalog {
+    /// Layer values transcribed from UK AIP approach/control chart conventions
+    /// to provide a simulator-friendly sector picture.
+    static func geometry(for airportICAO: String) -> RadarGeometry {
+        switch airportICAO {
+        case "EGLL": return heathrow
+        case "EGPF": return glasgow
+        case "EGPH": return edinburgh
+        default: return gatwick
+        }
+    }
+
+    private static let gatwick = RadarGeometry(
+        worldSize: CGSize(width: 1000, height: 800),
+        approachCourseHeading: 258.0,
+        centerlineStartFraction: CGPoint(x: 0.10, y: 0.54),
+        runwayThresholdFraction: CGPoint(x: 0.76, y: 0.50),
+        controlledAirspacePolygonFractions: [
+            CGPoint(x: 0.06, y: 0.16), CGPoint(x: 0.40, y: 0.10), CGPoint(x: 0.84, y: 0.20),
+            CGPoint(x: 0.92, y: 0.56), CGPoint(x: 0.68, y: 0.88), CGPoint(x: 0.20, y: 0.84)
+        ],
+        controlledAirspaceShelves: [
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.12, y: 0.24), CGPoint(x: 0.46, y: 0.20), CGPoint(x: 0.75, y: 0.30),
+                    CGPoint(x: 0.72, y: 0.62), CGPoint(x: 0.34, y: 0.70), CGPoint(x: 0.13, y: 0.54)
+                ],
+                floorLabel: "2500",
+                ceilingLabel: "FL195"
+            ),
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.28, y: 0.30), CGPoint(x: 0.58, y: 0.28), CGPoint(x: 0.69, y: 0.46),
+                    CGPoint(x: 0.58, y: 0.66), CGPoint(x: 0.30, y: 0.62), CGPoint(x: 0.22, y: 0.43)
+                ],
+                floorLabel: "3500",
+                ceilingLabel: "FL195"
+            )
+        ],
+        terrainSectors: [
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.00, y: 0.00), CGPoint(x: 0.45, y: 0.00), CGPoint(x: 0.42, y: 0.44), CGPoint(x: 0.00, y: 0.40)
+                ],
+                minimumAltitudeLabel: "MSA 2400"
+            ),
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.45, y: 0.00), CGPoint(x: 1.00, y: 0.00), CGPoint(x: 1.00, y: 0.44), CGPoint(x: 0.42, y: 0.44)
+                ],
+                minimumAltitudeLabel: "MSA 3300"
+            ),
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.00, y: 0.40), CGPoint(x: 0.42, y: 0.44), CGPoint(x: 0.40, y: 1.00), CGPoint(x: 0.00, y: 1.00)
+                ],
+                minimumAltitudeLabel: "MSA 2600"
+            )
+        ],
+        wrapInset: 100
+    )
+
+    private static let heathrow = RadarGeometry(
+        worldSize: CGSize(width: 1000, height: 800),
+        approachCourseHeading: 269.0,
+        centerlineStartFraction: CGPoint(x: 0.08, y: 0.50),
+        runwayThresholdFraction: CGPoint(x: 0.73, y: 0.50),
+        controlledAirspacePolygonFractions: [
+            CGPoint(x: 0.03, y: 0.20), CGPoint(x: 0.46, y: 0.06), CGPoint(x: 0.90, y: 0.20),
+            CGPoint(x: 0.96, y: 0.52), CGPoint(x: 0.74, y: 0.86), CGPoint(x: 0.22, y: 0.88)
+        ],
+        controlledAirspaceShelves: [
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.14, y: 0.24), CGPoint(x: 0.52, y: 0.14), CGPoint(x: 0.79, y: 0.25),
+                    CGPoint(x: 0.76, y: 0.63), CGPoint(x: 0.32, y: 0.72), CGPoint(x: 0.12, y: 0.50)
+                ],
+                floorLabel: "2500",
+                ceilingLabel: "FL195"
+            ),
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.26, y: 0.30), CGPoint(x: 0.56, y: 0.24), CGPoint(x: 0.69, y: 0.47),
+                    CGPoint(x: 0.54, y: 0.67), CGPoint(x: 0.27, y: 0.58), CGPoint(x: 0.18, y: 0.44)
+                ],
+                floorLabel: "3500",
+                ceilingLabel: "FL195"
+            )
+        ],
+        terrainSectors: [
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.00, y: 0.00), CGPoint(x: 0.50, y: 0.00), CGPoint(x: 0.48, y: 0.42), CGPoint(x: 0.00, y: 0.40)
+                ],
+                minimumAltitudeLabel: "MSA 2300"
+            ),
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.50, y: 0.00), CGPoint(x: 1.00, y: 0.00), CGPoint(x: 1.00, y: 0.44), CGPoint(x: 0.48, y: 0.42)
+                ],
+                minimumAltitudeLabel: "MSA 2600"
+            ),
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.00, y: 0.40), CGPoint(x: 0.48, y: 0.42), CGPoint(x: 0.44, y: 1.00), CGPoint(x: 0.00, y: 1.00)
+                ],
+                minimumAltitudeLabel: "MSA 2500"
+            )
+        ],
+        wrapInset: 100
+    )
+
+    private static let glasgow = RadarGeometry(
+        worldSize: CGSize(width: 1000, height: 800),
+        approachCourseHeading: 226.0,
+        centerlineStartFraction: CGPoint(x: 0.20, y: 0.26),
+        runwayThresholdFraction: CGPoint(x: 0.70, y: 0.66),
+        controlledAirspacePolygonFractions: [
+            CGPoint(x: 0.08, y: 0.10), CGPoint(x: 0.62, y: 0.08), CGPoint(x: 0.91, y: 0.35),
+            CGPoint(x: 0.90, y: 0.76), CGPoint(x: 0.50, y: 0.90), CGPoint(x: 0.14, y: 0.72)
+        ],
+        controlledAirspaceShelves: [
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.16, y: 0.20), CGPoint(x: 0.58, y: 0.19), CGPoint(x: 0.78, y: 0.38),
+                    CGPoint(x: 0.74, y: 0.70), CGPoint(x: 0.41, y: 0.78), CGPoint(x: 0.20, y: 0.58)
+                ],
+                floorLabel: "3000",
+                ceilingLabel: "FL195"
+            ),
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.26, y: 0.30), CGPoint(x: 0.53, y: 0.31), CGPoint(x: 0.65, y: 0.46),
+                    CGPoint(x: 0.59, y: 0.66), CGPoint(x: 0.33, y: 0.65), CGPoint(x: 0.23, y: 0.49)
+                ],
+                floorLabel: "4500",
+                ceilingLabel: "FL195"
+            )
+        ],
+        terrainSectors: [
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.00, y: 0.00), CGPoint(x: 0.48, y: 0.00), CGPoint(x: 0.42, y: 0.50), CGPoint(x: 0.00, y: 0.42)
+                ],
+                minimumAltitudeLabel: "MSA 3900"
+            ),
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.48, y: 0.00), CGPoint(x: 1.00, y: 0.00), CGPoint(x: 1.00, y: 0.52), CGPoint(x: 0.42, y: 0.50)
+                ],
+                minimumAltitudeLabel: "MSA 4200"
+            ),
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.00, y: 0.42), CGPoint(x: 0.42, y: 0.50), CGPoint(x: 0.40, y: 1.00), CGPoint(x: 0.00, y: 1.00)
+                ],
+                minimumAltitudeLabel: "MSA 3600"
+            )
+        ],
+        wrapInset: 100
+    )
+
+    private static let edinburgh = RadarGeometry(
+        worldSize: CGSize(width: 1000, height: 800),
+        approachCourseHeading: 236.0,
+        centerlineStartFraction: CGPoint(x: 0.20, y: 0.28),
+        runwayThresholdFraction: CGPoint(x: 0.71, y: 0.64),
+        controlledAirspacePolygonFractions: [
+            CGPoint(x: 0.08, y: 0.12), CGPoint(x: 0.54, y: 0.08), CGPoint(x: 0.90, y: 0.26),
+            CGPoint(x: 0.93, y: 0.70), CGPoint(x: 0.58, y: 0.90), CGPoint(x: 0.18, y: 0.78)
+        ],
+        controlledAirspaceShelves: [
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.16, y: 0.22), CGPoint(x: 0.56, y: 0.20), CGPoint(x: 0.76, y: 0.36),
+                    CGPoint(x: 0.74, y: 0.70), CGPoint(x: 0.40, y: 0.80), CGPoint(x: 0.18, y: 0.56)
+                ],
+                floorLabel: "3500",
+                ceilingLabel: "FL195"
+            ),
+            AirspaceShelf(
+                polygonFractions: [
+                    CGPoint(x: 0.24, y: 0.34), CGPoint(x: 0.52, y: 0.34), CGPoint(x: 0.64, y: 0.48),
+                    CGPoint(x: 0.58, y: 0.68), CGPoint(x: 0.32, y: 0.68), CGPoint(x: 0.22, y: 0.50)
+                ],
+                floorLabel: "4500",
+                ceilingLabel: "FL195"
+            )
+        ],
+        terrainSectors: [
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.00, y: 0.00), CGPoint(x: 0.50, y: 0.00), CGPoint(x: 0.45, y: 0.48), CGPoint(x: 0.00, y: 0.42)
+                ],
+                minimumAltitudeLabel: "MSA 3200"
+            ),
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.50, y: 0.00), CGPoint(x: 1.00, y: 0.00), CGPoint(x: 1.00, y: 0.54), CGPoint(x: 0.45, y: 0.48)
+                ],
+                minimumAltitudeLabel: "MSA 3800"
+            ),
+            TerrainSector(
+                polygonFractions: [
+                    CGPoint(x: 0.00, y: 0.42), CGPoint(x: 0.45, y: 0.48), CGPoint(x: 0.44, y: 1.00), CGPoint(x: 0.00, y: 1.00)
+                ],
+                minimumAltitudeLabel: "MSA 2900"
+            )
+        ],
+        wrapInset: 100
+    )
 }
