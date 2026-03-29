@@ -152,7 +152,7 @@ final class VoiceReadbackService {
         case "BAW":
             spokenPrefix = "Speedbird"
         case "EZY":
-            spokenPrefix = "easyJet"
+            spokenPrefix = "Easy"
         default:
             spokenPrefix = prefix
         }
