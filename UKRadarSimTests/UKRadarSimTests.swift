@@ -5,7 +5,7 @@ import Testing
 struct UKRadarSimTests {
 
     @Test func radarDisplayUpdatesOnlyOnRadarTick() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
 
         let baselineDisplay = CGPoint(x: engine.aircraft[0].displayX, y: engine.aircraft[0].displayY)
@@ -26,7 +26,7 @@ struct UKRadarSimTests {
     }
 
     @Test func headingTargetConvergesGradually() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
         #expect(!engine.strips.isEmpty)
 
@@ -45,7 +45,7 @@ struct UKRadarSimTests {
     }
 
     @Test func levelOffOccursWhenSelectedLevelReached() {
-        let engine = SimulationEngine()
+        let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
         #expect(!engine.strips.isEmpty)
 
@@ -100,6 +100,73 @@ struct UKRadarSimTests {
         #expect(instruction == ["reduce speed one eight zero knots"])
     }
 
+    @Test func simulationClockAppliesSpeedMultiplierToElapsedDelta() {
+        let stepper = MockSimulationStepper()
+        var now = 100.0
+        let clock = SimulationClock(
+            simulationStepper: stepper,
+            tickInterval: 0.1,
+            maximumFrameDelta: 5.0,
+            nowProvider: { now }
+        )
+        clock.speedMultiplier = 2.0
+
+        clock.start()
+        now = 100.5
+        clock.advanceFrame(to: now)
+
+        #expect(stepper.receivedDeltas.count == 1)
+        #expect(stepper.receivedDeltas[0] == 1.0)
+        #expect(clock.elapsedSeconds == 1.0)
+    }
+
+    @Test func simulationClockPauseAndResumeDoesNotAccumulatePausedTime() {
+        let stepper = MockSimulationStepper()
+        var now = 0.0
+        let clock = SimulationClock(
+            simulationStepper: stepper,
+            tickInterval: 0.1,
+            maximumFrameDelta: 5.0,
+            nowProvider: { now }
+        )
+
+        clock.start()
+        now = 1.0
+        clock.advanceFrame(to: now)
+        clock.pause()
+
+        now = 8.0
+        clock.advanceFrame(to: now)
+
+        clock.resume()
+        now = 9.0
+        clock.advanceFrame(to: now)
+
+        #expect(stepper.receivedDeltas.count == 2)
+        #expect(stepper.receivedDeltas[0] == 1.0)
+        #expect(stepper.receivedDeltas[1] == 1.0)
+        #expect(clock.elapsedSeconds == 2.0)
+    }
+
+    @Test func simulationClockClampsLargeFrameDelta() {
+        let stepper = MockSimulationStepper()
+        var now = 10.0
+        let clock = SimulationClock(
+            simulationStepper: stepper,
+            tickInterval: 0.1,
+            maximumFrameDelta: 0.25,
+            nowProvider: { now }
+        )
+
+        clock.start()
+        now = 12.0
+        clock.advanceFrame(to: now)
+
+        #expect(stepper.receivedDeltas.count == 1)
+        #expect(stepper.receivedDeltas[0] == 0.25)
+        #expect(clock.elapsedSeconds == 0.25)
+    }
+
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
@@ -125,5 +192,13 @@ struct UKRadarSimTests {
             lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
         )
+    }
+}
+
+private final class MockSimulationStepper: SimulationStepping {
+    private(set) var receivedDeltas: [CGFloat] = []
+
+    func step(dt: CGFloat) {
+        receivedDeltas.append(dt)
     }
 }
