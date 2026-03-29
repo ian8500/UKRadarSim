@@ -218,12 +218,6 @@ private struct MapOverlayRenderer: View {
 
                 context.stroke(airwayPath, with: .color(.mint.opacity(0.45)), style: StrokeStyle(lineWidth: 0.8, dash: [3, 6]))
 
-                let labelPointFraction = airway.waypoints[airway.waypoints.count / 2]
-                let labelPoint = geometry.point(inViewFromFraction: labelPointFraction, viewSize: size)
-                let text = Text(airway.identifier)
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(.mint.opacity(0.95))
-                context.draw(text, at: CGPoint(x: labelPoint.x + 10, y: labelPoint.y - 8))
             }
 
             var centerline = Path()
