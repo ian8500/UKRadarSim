@@ -6,6 +6,7 @@ enum InstructionChange: Hashable {
     case heading
     case speed
     case approachType
+    case ilsClearance
 }
 
 class SimulationEngine: ObservableObject {
@@ -245,6 +246,20 @@ class SimulationEngine: ObservableObject {
         }
 
         strips[stripIndex].bay = bay
+    }
+
+
+    func armILSIntercept(stripID: UUID) {
+        guard let stripIndex = strips.firstIndex(where: { $0.id == stripID }) else {
+            return
+        }
+        guard let aircraftIndex = aircraft.firstIndex(where: { $0.id == strips[stripIndex].aircraftID }) else {
+            return
+        }
+
+        strips[stripIndex].approachType = "ILS"
+        strips[stripIndex].approachCleared = true
+        aircraft[aircraftIndex].autoLandingActive = true
     }
 
     func clearForApproach(stripID: UUID) {
