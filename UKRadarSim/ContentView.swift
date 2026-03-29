@@ -264,10 +264,17 @@ private struct HeadingPicker: View {
                 adjustButton("+10", by: 10)
             }
 
-            Button("ILS") {
-                ilsModeArmed.toggle()
+            if ilsModeArmed {
+                Button("ILS") {
+                    ilsModeArmed.toggle()
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button("ILS") {
+                    ilsModeArmed.toggle()
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(ilsModeArmed ? .borderedProminent : .bordered)
 
             Button("Send") {
                 onSend(ilsModeArmed)
