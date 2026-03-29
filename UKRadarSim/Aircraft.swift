@@ -51,17 +51,27 @@ enum StripBay: String, CaseIterable, Identifiable {
 struct EFPSStrip: Identifiable {
     let id = UUID()
     let aircraftID: UUID
-    let callsign: String
+    var callsign: String
+    var aircraftType: String
     let destination: String
     let isInbound: Bool
 
     var bay: StripBay
     var selectedLevel: Int
     var currentLevel: Int
+    var selectedHeading: Int
+    var selectedSpeed: Int
+    var approachType: String
     var instructionLog: [String]
-    var pendingInstruction: String = ""
 
     var stripColorHex: String {
         isInbound ? "#E8CF9B" : "#D2E4FF"
+    }
+
+    var levelDisplay: String {
+        if selectedLevel < 70 {
+            return "\(selectedLevel * 100)FT"
+        }
+        return "FL\(selectedLevel)"
     }
 }
