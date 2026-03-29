@@ -125,16 +125,10 @@ class SimulationEngine: ObservableObject {
         }
 
         let strip = strips[stripIndex]
-        let instruction = [
-            strip.callsign,
-            strip.aircraftType,
-            "LVL \(strip.levelDisplay)",
-            "HDG \(String(format: "%03d", strip.selectedHeading))",
-            "SPD \(strip.selectedSpeed)KT",
-            strip.approachType
-        ].joined(separator: " | ")
+        let phraseology = VoiceReadbackService.shared.buildCAAReadback(for: strip)
 
-        strips[stripIndex].instructionLog.insert(instruction, at: 0)
+        strips[stripIndex].instructionLog.insert(phraseology, at: 0)
+        VoiceReadbackService.shared.speakReadback(for: strip)
     }
 
     func flitStrip(stripID: UUID, to bay: StripBay) {
