@@ -10,14 +10,7 @@ enum InstructionChange: Hashable {
 }
 
 private struct SimulationConfig {
-    let headingTurnRateDegreesPerSecond: Double = 3.0
-    let accelerationRateKnotsPerSecond: Double = 2.0
-    let decelerationRateKnotsPerSecond: Double = 2.0
-    let climbDescentRateFLPerSecond: Double = 2.0
-
-    let approachTargetGroundSpeedKnots: Int = 160
-    let approachDecelerationKnotsPerTick: Int = 2
-    let approachDescentFLPerTick: Int = 1
+    let approachHeadingTurnRateDegreesPerSecond: Double = 8.0
 
     struct LocalizerCapture {
         let maxDistancePixels: CGFloat = 24
@@ -86,13 +79,16 @@ class SimulationEngine: ObservableObject {
     private let config = SimulationConfig()
     private let predictor = TrackPredictor()
     private let startupScenario: SimulationScenario
+    private let performanceProvider: AircraftPerformanceProviding
 
     init(
         geometry: RadarGeometry = .default,
-        startupScenario: SimulationScenario
+        startupScenario: SimulationScenario = ScenarioLibrary.default,
+        performanceProvider: AircraftPerformanceProviding = AircraftPerformanceCatalog()
     ) {
         self.geometry = geometry
         self.startupScenario = startupScenario
+        self.performanceProvider = performanceProvider
         loadStartupTraffic()
         updateRadarDisplayedPositions()
     }
@@ -242,20 +238,21 @@ class SimulationEngine: ObservableObject {
         }
 
         aircraft[index].selectedLevel = strips[stripIndex].selectedLevel
+        let performance = performanceProvider.profile(for: aircraft[index].aircraftType)
 
         let headingTarget = Double(strips[stripIndex].selectedHeading)
         aircraft[index].heading = moveAngle(
             aircraft[index].heading,
             toward: headingTarget,
-            maxDelta: Double(dt) * config.headingTurnRateDegreesPerSecond
+            maxDelta: Double(dt) * performance.maxTurnRateDegreesPerSecond
         )
 
         let speedTarget = strips[stripIndex].selectedSpeed
         if aircraft[index].groundSpeed < speedTarget {
-            let increase = max(1, Int((Double(dt) * config.accelerationRateKnotsPerSecond).rounded()))
+            let increase = max(1, Int((Double(dt) * performance.accelerationRateKnotsPerSecond).rounded()))
             aircraft[index].groundSpeed = min(speedTarget, aircraft[index].groundSpeed + increase)
         } else if aircraft[index].groundSpeed > speedTarget {
-            let decrease = max(1, Int((Double(dt) * config.decelerationRateKnotsPerSecond).rounded()))
+            let decrease = max(1, Int((Double(dt) * performance.decelerationRateKnotsPerSecond).rounded()))
             aircraft[index].groundSpeed = max(speedTarget, aircraft[index].groundSpeed - decrease)
         }
 
@@ -263,8 +260,9 @@ class SimulationEngine: ObservableObject {
         if aircraft[index].currentLevel != levelTarget {
             let direction = levelTarget > aircraft[index].currentLevel ? 1 : -1
             let progressKey = aircraftID
+            let verticalRate = direction > 0 ? performance.climbRateFLPerSecond : performance.descentRateFLPerSecond
 
-            verticalProgressByAircraft[progressKey, default: 0] += config.climbDescentRateFLPerSecond * Double(dt)
+            verticalProgressByAircraft[progressKey, default: 0] += verticalRate * Double(dt)
 
             while verticalProgressByAircraft[progressKey, default: 0] >= 1.0,
                   aircraft[index].currentLevel != levelTarget {
@@ -387,26 +385,32 @@ class SimulationEngine: ObservableObject {
         guard aircraft[index].approachCaptured else {
             return
         }
+        let performance = performanceProvider.profile(for: aircraft[index].aircraftType)
 
         let newHeading = moveAngle(
             aircraft[index].heading,
             toward: geometry.approachCourseHeading,
-            maxDelta: Double(dt) * 8
+            maxDelta: Double(dt) * config.approachHeadingTurnRateDegreesPerSecond
         )
         aircraft[index].heading = newHeading
 
-        if aircraft[index].groundSpeed > config.approachTargetGroundSpeedKnots {
+        if aircraft[index].groundSpeed > performance.typicalApproachSpeedKnots {
+            let approachDeceleration = max(1, Int((Double(dt) * performance.decelerationRateKnotsPerSecond).rounded()))
             aircraft[index].groundSpeed = max(
-                config.approachTargetGroundSpeedKnots,
-                aircraft[index].groundSpeed - config.approachDecelerationKnotsPerTick
+                performance.typicalApproachSpeedKnots,
+                aircraft[index].groundSpeed - approachDeceleration
             )
         }
 
         if aircraft[index].currentLevel > 0 {
-            aircraft[index].currentLevel = max(
-                0,
-                aircraft[index].currentLevel - config.approachDescentFLPerTick
-            )
+            verticalProgressByAircraft[aircraftID, default: 0] += performance.descentRateFLPerSecond * Double(dt)
+
+            while verticalProgressByAircraft[aircraftID, default: 0] >= 1.0,
+                  aircraft[index].currentLevel > 0 {
+                aircraft[index].currentLevel -= 1
+                verticalProgressByAircraft[aircraftID, default: 0] -= 1.0
+            }
+
             aircraft[index].trend = aircraft[index].currentLevel == 0 ? .level : .descend
         }
 

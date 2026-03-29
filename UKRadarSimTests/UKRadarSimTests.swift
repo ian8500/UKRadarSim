@@ -100,6 +100,44 @@ struct UKRadarSimTests {
         #expect(instruction == ["reduce speed one eight zero knots"])
     }
 
+    @Test func aircraftTypesTurnAtDifferentRatesForSameInstruction() {
+        let engine = SimulationEngine(startupScenario: makePerformanceComparisonScenario())
+        #expect(engine.aircraft.count >= 2)
+
+        for stripIndex in engine.strips.indices {
+            engine.strips[stripIndex].selectedHeading = 180
+        }
+
+        engine.step(dt: 1.0)
+
+        let fastTurnAircraft = engine.aircraft.first { $0.aircraftType == "E190" }
+        let slowerTurnAircraft = engine.aircraft.first { $0.aircraftType == "A321" }
+
+        #expect(fastTurnAircraft != nil)
+        #expect(slowerTurnAircraft != nil)
+        #expect(fastTurnAircraft!.heading > slowerTurnAircraft!.heading)
+    }
+
+    @Test func aircraftTypesChangeSpeedAndLevelDifferentlyForSameInstruction() {
+        let engine = SimulationEngine(startupScenario: makePerformanceComparisonScenario())
+        #expect(engine.aircraft.count >= 2)
+
+        for stripIndex in engine.strips.indices {
+            engine.strips[stripIndex].selectedSpeed = 230
+            engine.strips[stripIndex].selectedLevel = 124
+        }
+
+        engine.step(dt: 1.0)
+
+        let fasterAircraft = engine.aircraft.first { $0.aircraftType == "E190" }
+        let slowerAircraft = engine.aircraft.first { $0.aircraftType == "A321" }
+
+        #expect(fasterAircraft != nil)
+        #expect(slowerAircraft != nil)
+        #expect(fasterAircraft!.groundSpeed > slowerAircraft!.groundSpeed)
+        #expect(fasterAircraft!.currentLevel > slowerAircraft!.currentLevel)
+    }
+
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
@@ -124,6 +162,38 @@ struct UKRadarSimTests {
             lastIssuedHeading: 0,
             lastIssuedSpeed: lastIssuedSpeed,
             lastIssuedApproachType: "ILS"
+        )
+    }
+
+    private func makePerformanceComparisonScenario() -> SimulationScenario {
+        SimulationScenario(
+            id: "performance-comparison",
+            aircraft: [
+                ScenarioAircraftDefinition(
+                    callsign: "TEST190",
+                    aircraftType: "E190",
+                    position: CGPoint(x: 100, y: 100),
+                    heading: 0,
+                    groundSpeed: 200,
+                    currentLevel: 120,
+                    selectedLevel: 120,
+                    trend: .level,
+                    destination: "EGKK",
+                    isInbound: false
+                ),
+                ScenarioAircraftDefinition(
+                    callsign: "TEST321",
+                    aircraftType: "A321",
+                    position: CGPoint(x: 140, y: 140),
+                    heading: 0,
+                    groundSpeed: 200,
+                    currentLevel: 120,
+                    selectedLevel: 120,
+                    trend: .level,
+                    destination: "EGKK",
+                    isInbound: false
+                )
+            ]
         )
     }
 }
