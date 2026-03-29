@@ -23,23 +23,17 @@ struct ToolbarButton: View {
 }
 
 private enum StripField: String, Identifiable {
-    case callsign
-    case aircraftType
     case level
     case heading
     case speed
-    case approachType
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .callsign: return "Callsign"
-        case .aircraftType: return "Aircraft Type"
         case .level: return "Level"
         case .heading: return "Heading"
         case .speed: return "Speed"
-        case .approachType: return "Approach"
         }
     }
 }
@@ -47,22 +41,40 @@ private enum StripField: String, Identifiable {
 struct StripCard: View {
     @Binding var strip: EFPSStrip
     let sendInstruction: () -> Void
+    let clearForApproach: () -> Void
     let flitStrip: (StripBay) -> Void
 
     @State private var activeField: StripField?
+    @State private var draftLevel: Int = 0
+    @State private var draftHeading: Int = 0
+    @State private var draftSpeed: Int = 0
 
-    private let aircraftTypes = ["A319", "A320", "A321", "B738", "B739", "E190", "DH8D"]
-    private let approachTypes = ["ILS", "RNAV", "VISUAL", "LOC", "SID"]
-    private let callsignOptions = ["EZY15WY", "BAW214", "RYR82MP", "KLM1023", "SHT7AB", "DAL41"]
     private let levelOptions: [Int] = Array(stride(from: 10, through: 60, by: 10)) + Array(stride(from: 70, through: 160, by: 10))
     private let speedOptions: [Int] = [250, 230, 210, 190, 170, 160]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                fieldCell(title: "CALL", value: strip.callsign, field: .callsign)
-                fieldCell(title: "TYPE", value: strip.aircraftType, field: .aircraftType)
-                fieldCell(title: "APP", value: strip.approachType, field: .approachType)
+                staticFieldCell(title: "CALL", value: strip.callsign)
+                staticFieldCell(title: "TYPE", value: strip.aircraftType)
+                Button {
+                    clearForApproach()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("APP")
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(.black.opacity(0.7))
+                        Text(strip.approachCleared ? "CLEARED" : "CLEAR")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.black)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .background(Color.white.opacity(0.55))
+                    .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
             }
 
             HStack(spacing: 8) {
@@ -83,12 +95,6 @@ struct StripCard: View {
                 .foregroundColor(.black.opacity(0.8))
 
                 Spacer()
-
-                Button("Send") {
-                    sendInstruction()
-                }
-                .font(.caption.weight(.semibold))
-                .buttonStyle(.borderedProminent)
             }
 
             if let lastInstruction = strip.instructionLog.first {
@@ -114,36 +120,62 @@ struct StripCard: View {
             popupContent(for: field)
                 .presentationCompactAdaptation(.popover)
         }
+        .onAppear {
+            syncDraftValues()
+        }
+        .onChange(of: strip.selectedLevel) { _, newValue in
+            draftLevel = newValue
+        }
+        .onChange(of: strip.selectedHeading) { _, newValue in
+            draftHeading = newValue
+        }
+        .onChange(of: strip.selectedSpeed) { _, newValue in
+            draftSpeed = newValue
+        }
     }
 
     @ViewBuilder
     private func popupContent(for field: StripField) -> some View {
         switch field {
-        case .callsign:
-            optionList(title: field.title, options: callsignOptions, label: { $0 }) { selected in
-                strip.callsign = selected
-            }
-        case .aircraftType:
-            optionList(title: field.title, options: aircraftTypes, label: { $0 }) { selected in
-                strip.aircraftType = selected
-            }
         case .level:
             optionList(title: field.title, options: levelOptions, label: { level in
                 level < 70 ? "\(level * 100)FT" : "FL\(level)"
-            }) { selected in
-                strip.selectedLevel = selected
+            }, selected: draftLevel) { selected in
+                draftLevel = selected
+            } onSend: {
+                strip.selectedLevel = draftLevel
+                sendInstruction()
             }
         case .heading:
-            HeadingPicker(selectedHeading: $strip.selectedHeading)
-        case .speed:
-            optionList(title: field.title, options: speedOptions, label: { "\($0)KT" }) { selected in
-                strip.selectedSpeed = selected
+            HeadingPicker(selectedHeading: $draftHeading) {
+                strip.selectedHeading = draftHeading
+                sendInstruction()
+                activeField = nil
             }
-        case .approachType:
-            optionList(title: field.title, options: approachTypes, label: { $0 }) { selected in
-                strip.approachType = selected
+        case .speed:
+            optionList(title: field.title, options: speedOptions, label: { "\($0)KT" }, selected: draftSpeed) { selected in
+                draftSpeed = selected
+            } onSend: {
+                strip.selectedSpeed = draftSpeed
+                sendInstruction()
             }
         }
+    }
+
+    private func staticFieldCell(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2.weight(.bold))
+                .foregroundColor(.black.opacity(0.7))
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.black)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .padding(.horizontal, 8)
+        .background(Color.white.opacity(0.55))
+        .cornerRadius(4)
     }
 
     private func fieldCell(title: String, value: String, field: StripField) -> some View {
@@ -171,7 +203,9 @@ struct StripCard: View {
         title: String,
         options: [T],
         label: @escaping (T) -> String,
-        onSelect: @escaping (T) -> Void
+        selected: T,
+        onSelect: @escaping (T) -> Void,
+        onSend: @escaping () -> Void
     ) -> some View where T: Hashable {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
@@ -181,20 +215,31 @@ struct StripCard: View {
                     ForEach(options, id: \.self) { option in
                         Button(label(option)) {
                             onSelect(option)
-                            activeField = nil
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(selected == option ? .borderedProminent : .bordered)
                     }
                 }
             }
+            Button("Send") {
+                onSend()
+                activeField = nil
+            }
+            .buttonStyle(.borderedProminent)
         }
         .padding()
         .frame(width: 260, height: 320)
+    }
+
+    private func syncDraftValues() {
+        draftLevel = strip.selectedLevel
+        draftHeading = strip.selectedHeading
+        draftSpeed = strip.selectedSpeed
     }
 }
 
 private struct HeadingPicker: View {
     @Binding var selectedHeading: Int
+    let onSend: () -> Void
 
     private let baseHeadings: [Int] = Array(stride(from: 0, through: 340, by: 20))
 
@@ -215,6 +260,11 @@ private struct HeadingPicker: View {
                 adjustButton("+5", by: 5)
                 adjustButton("+10", by: 10)
             }
+
+            Button("Send") {
+                onSend()
+            }
+            .buttonStyle(.borderedProminent)
         }
         .padding()
         .frame(width: 280)
@@ -309,6 +359,7 @@ struct StripBayColumn: View {
     let bay: StripBay
     @Binding var strips: [EFPSStrip]
     let sendInstruction: (UUID) -> Void
+    let clearForApproach: (UUID) -> Void
     let flitStrip: (UUID, StripBay) -> Void
 
     private var stripIndexes: [Int] {
@@ -332,6 +383,9 @@ struct StripBayColumn: View {
                         strip: $strips[index],
                         sendInstruction: {
                             sendInstruction(strips[index].id)
+                        },
+                        clearForApproach: {
+                            clearForApproach(strips[index].id)
                         },
                         flitStrip: { targetBay in
                             flitStrip(strips[index].id, targetBay)

@@ -41,9 +41,7 @@ struct Aircraft: Identifiable {
 
 enum StripBay: String, CaseIterable, Identifiable {
     case inbound = "Inbound"
-    case approach = "Approach"
-    case runway = "Runway"
-    case departed = "Departed"
+    case outbound = "Outbound"
 
     var id: String { rawValue }
 }
@@ -62,6 +60,7 @@ struct EFPSStrip: Identifiable {
     var selectedHeading: Int
     var selectedSpeed: Int
     var approachType: String
+    var approachCleared: Bool
     var instructionLog: [String]
 
     var stripColorHex: String {
