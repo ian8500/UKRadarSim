@@ -37,6 +37,9 @@ struct Aircraft: Identifiable {
 
     var destination: String
     var isInbound: Bool
+    var approachCaptured: Bool = false
+    var autoLandingActive: Bool = false
+    var isLanded: Bool = false
 }
 
 enum StripBay: String, CaseIterable, Identifiable {
@@ -61,6 +64,8 @@ struct EFPSStrip: Identifiable {
     var selectedSpeed: Int
     var approachType: String
     var approachCleared: Bool
+    var approachCaptured: Bool = false
+    var isLanded: Bool = false
     var instructionLog: [String]
 
     var stripColorHex: String {
