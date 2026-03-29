@@ -2,12 +2,13 @@ import SwiftUI
 
 struct MainRadarView: View {
     @EnvironmentObject private var appState: AppState
-    private let geometry: RadarGeometry
     @StateObject private var sim: SimulationEngine
+    @StateObject private var clock: SimulationClock
 
-    init(geometry: RadarGeometry = .default) {
-        self.geometry = geometry
-        _sim = StateObject(wrappedValue: SimulationEngine(geometry: geometry))
+    init() {
+        let simulationEngine = SimulationEngine()
+        _sim = StateObject(wrappedValue: simulationEngine)
+        _clock = StateObject(wrappedValue: SimulationClock(simulationEngine: simulationEngine))
     }
 
     var body: some View {
@@ -23,6 +24,12 @@ struct MainRadarView: View {
 
             stripArea
         }
+        .onAppear {
+            clock.start()
+        }
+        .onDisappear {
+            clock.pause()
+        }
     }
 
     private var toolbar: some View {
@@ -30,7 +37,17 @@ struct MainRadarView: View {
             ToolbarButton(title: "Layers")
             vectorsMenu
             ToolbarButton(title: "Wake")
-            ToolbarButton(title: "Pause")
+            Button {
+                clock.isRunning ? clock.pause() : clock.resume()
+            } label: {
+                Text(clock.isRunning ? "Pause" : "Resume")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.25))
+                    .cornerRadius(8)
+            }
 
             Spacer()
 
