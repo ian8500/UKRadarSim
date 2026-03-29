@@ -54,11 +54,15 @@ class SimulationEngine: ObservableObject {
             EFPSStrip(
                 aircraftID: item.id,
                 callsign: item.callsign,
+                aircraftType: item.isInbound ? "A320" : "B738",
                 destination: item.destination,
                 isInbound: item.isInbound,
                 bay: item.isInbound ? .inbound : .departed,
                 selectedLevel: item.selectedLevel,
                 currentLevel: item.currentLevel,
+                selectedHeading: Int(item.heading),
+                selectedSpeed: item.groundSpeed,
+                approachType: item.isInbound ? "ILS" : "SID",
                 instructionLog: []
             )
         }
@@ -113,7 +117,6 @@ class SimulationEngine: ObservableObject {
         }
 
         strips[stripIndex].currentLevel = currentAircraft.currentLevel
-        strips[stripIndex].selectedLevel = currentAircraft.selectedLevel
     }
 
     func sendInstruction(stripID: UUID) {
@@ -121,12 +124,17 @@ class SimulationEngine: ObservableObject {
             return
         }
 
-        let instruction = strips[stripIndex].pendingInstruction
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard instruction.isEmpty == false else { return }
+        let strip = strips[stripIndex]
+        let instruction = [
+            strip.callsign,
+            strip.aircraftType,
+            "LVL \(strip.levelDisplay)",
+            "HDG \(String(format: "%03d", strip.selectedHeading))",
+            "SPD \(strip.selectedSpeed)KT",
+            strip.approachType
+        ].joined(separator: " | ")
 
         strips[stripIndex].instructionLog.insert(instruction, at: 0)
-        strips[stripIndex].pendingInstruction = ""
     }
 
     func flitStrip(stripID: UUID, to bay: StripBay) {
