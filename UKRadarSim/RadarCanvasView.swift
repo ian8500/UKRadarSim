@@ -36,8 +36,10 @@ struct RadarCanvasView: View {
                         geometry: geometry,
                         size: geo.size,
                         zoomScale: effectiveZoom,
+                        mapPadding: mapPadding,
                         showsControlledAirspaceBase: showsControlledAirspaceBase,
-                        showsTerrainMap: showsTerrainMap
+                        showsTerrainMap: showsTerrainMap,
+                        showsDebugOverlays: showsDebugOverlays
                     )
                     RadarVectorLayer(aircraft: aircraft, vectorSetting: vectorSetting, viewport: viewport)
                     RadarTrackLayer(aircraft: aircraft, viewport: viewport)
@@ -108,8 +110,10 @@ private struct RadarMapLayer: View {
     let geometry: RadarGeometry
     let size: CGSize
     let zoomScale: CGFloat
+    let mapPadding: CGFloat
     let showsControlledAirspaceBase: Bool
     let showsTerrainMap: Bool
+    let showsDebugOverlays: Bool
 
     @State private var preRenderedMapImage: Image?
     @State private var cachedMapSize: CGSize = .zero
@@ -128,8 +132,10 @@ private struct RadarMapLayer: View {
                     geometry: geometry,
                     size: size,
                     zoomScale: zoomScale,
+                    mapPadding: mapPadding,
                     showsControlledAirspaceBase: showsControlledAirspaceBase,
-                    showsTerrainMap: showsTerrainMap
+                    showsTerrainMap: showsTerrainMap,
+                    showsDebugOverlays: showsDebugOverlays
                 )
             }
         }
@@ -153,8 +159,10 @@ private struct RadarMapLayer: View {
             geometry: geometry,
             size: size,
             zoomScale: 1,
+            mapPadding: mapPadding,
             showsControlledAirspaceBase: showsControlledAirspaceBase,
-            showsTerrainMap: showsTerrainMap
+            showsTerrainMap: showsTerrainMap,
+            showsDebugOverlays: showsDebugOverlays
         ))
         renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
         if let rendered = renderer.uiImage {
@@ -332,128 +340,6 @@ private struct RadarScaleOverlay: View {
         )
     }
 
-    private var radarBackground: some View {
-        Color(red: 0.02, green: 0.18, blue: 0.22)
-    }
-
-    @ViewBuilder
-    private func radarMap(in size: CGSize) -> some View {
-        if let preRenderedMapImage, effectiveZoom == 1 {
-            preRenderedMapImage
-                .resizable()
-                .interpolation(.none)
-                .scaledToFill()
-                .frame(width: size.width, height: size.height)
-                .allowsHitTesting(false)
-        } else {
-            MapOverlayRenderer(
-                geometry: geometry,
-                size: size,
-                zoomScale: effectiveZoom,
-                mapPadding: mapPadding,
-                showsControlledAirspaceBase: showsControlledAirspaceBase,
-                showsTerrainMap: showsTerrainMap,
-                showsDebugOverlays: showsDebugOverlays
-            )
-        }
-    }
-
-    private func updatePreRenderedMapIfNeeded(size: CGSize) {
-        guard size.width > 0, size.height > 0 else { return }
-        guard cachedMapSize != size || preRenderedMapImage == nil else { return }
-
-        let renderer = ImageRenderer(content: MapOverlayRenderer(
-            geometry: geometry,
-            size: size,
-            zoomScale: 1,
-            mapPadding: mapPadding,
-            showsControlledAirspaceBase: showsControlledAirspaceBase,
-            showsTerrainMap: showsTerrainMap,
-            showsDebugOverlays: showsDebugOverlays
-        ))
-        renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
-        if let rendered = renderer.uiImage {
-            preRenderedMapImage = Image(uiImage: rendered)
-            cachedMapSize = size
-        }
-    }
-
-    private func centroid(for polygon: [CGPoint]) -> CGPoint {
-        guard !polygon.isEmpty else { return CGPoint(x: 0.5, y: 0.5) }
-        let sums = polygon.reduce((x: CGFloat.zero, y: CGFloat.zero)) { partial, point in
-            (partial.x + point.x, partial.y + point.y)
-        }
-        return CGPoint(x: sums.x / CGFloat(polygon.count), y: sums.y / CGFloat(polygon.count))
-    }
-
-    private func vectorLayer(in size: CGSize) -> some View {
-        Canvas { context, _ in
-            guard vectorSetting != .off else { return }
-
-            for item in aircraft {
-                let worldStart = CGPoint(x: item.displayX, y: item.displayY)
-                let worldEnd = vectorEndpoint(for: item, lookaheadSeconds: vectorSetting.lookaheadSeconds)
-
-                var path = Path()
-                path.move(to: zoomedPoint(inViewFromWorld: worldStart, viewSize: size))
-                path.addLine(to: zoomedPoint(inViewFromWorld: worldEnd, viewSize: size))
-                context.stroke(path, with: .color(Color.cyan.opacity(0.55)), lineWidth: 1)
-            }
-        }
-        .frame(width: size.width, height: size.height)
-        .allowsHitTesting(false)
-    }
-
-    private func aircraftLayer(in size: CGSize) -> some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(aircraft) { aircraft in
-                AircraftTrackView(
-                    aircraft: aircraft,
-                    displayPoint: zoomedPoint(
-                        inViewFromWorld: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
-                        viewSize: size
-                    ),
-                    historyPoints: aircraft.historyDots.map { zoomedPoint(inViewFromWorld: $0, viewSize: size) }
-                )
-            }
-        }
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
-    }
-
-    private func zoomedPoint(inViewFromWorld worldPoint: CGPoint, viewSize: CGSize) -> CGPoint {
-        let transform = geometry.fittedTransform(
-            viewSize: viewSize,
-            worldPoints: coreProjectionWorldPoints,
-            padding: mapPadding
-        )
-        let basePoint = transform.pointInView(from: worldPoint)
-        let viewCenter = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
-        return CGPoint(
-            x: viewCenter.x + ((basePoint.x - viewCenter.x) * effectiveZoom),
-            y: viewCenter.y + ((basePoint.y - viewCenter.y) * effectiveZoom)
-        )
-    }
-
-    private var coreProjectionWorldPoints: [CGPoint] {
-        var points: [CGPoint] = [geometry.runwayThreshold, geometry.centerlineStart]
-        points.append(contentsOf: geometry.controlledAirspacePolygonFractions.map { geometry.point(inWorldFromFraction: $0) })
-        points.append(contentsOf: geometry.controlledAirspaceShelves.flatMap { shelf in
-            shelf.polygonFractions.map { geometry.point(inWorldFromFraction: $0) }
-        })
-        points.append(contentsOf: geometry.surroundingAirways.flatMap { airway in
-            airway.waypoints.map { geometry.point(inWorldFromFraction: $0) }
-        })
-        if showsTerrainMap {
-            points.append(contentsOf: geometry.terrainSectors.flatMap { sector in
-                sector.polygonFractions.map { geometry.point(inWorldFromFraction: $0) }
-            })
-        }
-        return points
-    }
-
-    private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
-        predictedVectorEndpoint(aircraft, lookaheadSeconds)
-    }
 }
 
 private struct MapOverlayRenderer: View {
