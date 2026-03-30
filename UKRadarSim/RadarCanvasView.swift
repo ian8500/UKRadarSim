@@ -3,6 +3,7 @@ import SwiftUI
 struct RadarCanvasView: View {
     let aircraft: [Aircraft]
     let vectorSetting: VectorSetting
+    let predictedVectorEndpoint: (Aircraft, Double) -> CGPoint
     let showsControlledAirspaceBase: Bool
     let showsTerrainMap: Bool
     let geometry: RadarGeometry
@@ -324,6 +325,103 @@ private struct RadarScaleOverlay: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(.white.opacity(0.2), lineWidth: 1)
         )
+    }
+
+    private var radarBackground: some View {
+        Color(red: 0.02, green: 0.18, blue: 0.22)
+    }
+
+    @ViewBuilder
+    private func radarMap(in size: CGSize) -> some View {
+        if let preRenderedMapImage, effectiveZoom == 1 {
+            preRenderedMapImage
+                .resizable()
+                .interpolation(.none)
+                .scaledToFill()
+                .frame(width: size.width, height: size.height)
+                .allowsHitTesting(false)
+        } else {
+            MapOverlayRenderer(
+                geometry: geometry,
+                size: size,
+                zoomScale: effectiveZoom,
+                showsControlledAirspaceBase: showsControlledAirspaceBase,
+                showsTerrainMap: showsTerrainMap
+            )
+        }
+    }
+
+    private func updatePreRenderedMapIfNeeded(size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        guard cachedMapSize != size || preRenderedMapImage == nil else { return }
+
+        let renderer = ImageRenderer(content: MapOverlayRenderer(
+            geometry: geometry,
+            size: size,
+            zoomScale: 1,
+            showsControlledAirspaceBase: showsControlledAirspaceBase,
+            showsTerrainMap: showsTerrainMap
+        ))
+        renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
+        if let rendered = renderer.uiImage {
+            preRenderedMapImage = Image(uiImage: rendered)
+            cachedMapSize = size
+        }
+    }
+
+    private func centroid(for polygon: [CGPoint]) -> CGPoint {
+        guard !polygon.isEmpty else { return CGPoint(x: 0.5, y: 0.5) }
+        let sums = polygon.reduce((x: CGFloat.zero, y: CGFloat.zero)) { partial, point in
+            (partial.x + point.x, partial.y + point.y)
+        }
+        return CGPoint(x: sums.x / CGFloat(polygon.count), y: sums.y / CGFloat(polygon.count))
+    }
+
+    private func vectorLayer(in size: CGSize) -> some View {
+        Canvas { context, _ in
+            guard vectorSetting != .off else { return }
+
+            for item in aircraft {
+                let worldStart = CGPoint(x: item.displayX, y: item.displayY)
+                let worldEnd = vectorEndpoint(for: item, lookaheadSeconds: vectorSetting.lookaheadSeconds)
+
+                var path = Path()
+                path.move(to: zoomedPoint(inViewFromWorld: worldStart, viewSize: size))
+                path.addLine(to: zoomedPoint(inViewFromWorld: worldEnd, viewSize: size))
+                context.stroke(path, with: .color(Color.cyan.opacity(0.55)), lineWidth: 1)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .allowsHitTesting(false)
+    }
+
+    private func aircraftLayer(in size: CGSize) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(aircraft) { aircraft in
+                AircraftTrackView(
+                    aircraft: aircraft,
+                    displayPoint: zoomedPoint(
+                        inViewFromWorld: CGPoint(x: aircraft.displayX, y: aircraft.displayY),
+                        viewSize: size
+                    ),
+                    historyPoints: aircraft.historyDots.map { zoomedPoint(inViewFromWorld: $0, viewSize: size) }
+                )
+            }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+
+    private func zoomedPoint(inViewFromWorld worldPoint: CGPoint, viewSize: CGSize) -> CGPoint {
+        let basePoint = geometry.point(inViewFromWorld: worldPoint, viewSize: viewSize)
+        let viewCenter = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+        return CGPoint(
+            x: viewCenter.x + ((basePoint.x - viewCenter.x) * effectiveZoom),
+            y: viewCenter.y + ((basePoint.y - viewCenter.y) * effectiveZoom)
+        )
+    }
+
+    private func vectorEndpoint(for aircraft: Aircraft, lookaheadSeconds: Double) -> CGPoint {
+        predictedVectorEndpoint(aircraft, lookaheadSeconds)
     }
 }
 
