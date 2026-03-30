@@ -10,6 +10,7 @@ struct RadarCanvasView: View {
     let mapValidationMode: Bool
     let showsMapDebugLabels: Bool
     let visibleControlledAirspaceFloors: Set<String>
+    let airspaceDisplayOptions: AirspaceDisplayOptions
     let geometry: RadarGeometry
 
     @State private var zoomScale: CGFloat = 1.0
@@ -39,7 +40,8 @@ struct RadarCanvasView: View {
                         showsControlledAirspaceBase: showsControlledAirspaceBase,
                         showsTerrainMap: showsTerrainMap,
                         showsDebugOverlays: showsMapDebugLabels,
-                        visibleControlledAirspaceFloors: visibleControlledAirspaceFloors
+                        visibleControlledAirspaceFloors: visibleControlledAirspaceFloors,
+                        airspaceDisplayOptions: airspaceDisplayOptions
                     )
                     RadarVectorLayer(aircraft: aircraft, vectorSetting: vectorSetting, viewport: viewport)
                     RadarTrackLayer(aircraft: aircraft, viewport: viewport)
@@ -115,6 +117,7 @@ private struct RadarMapLayer: View {
     let showsTerrainMap: Bool
     let showsDebugOverlays: Bool
     let visibleControlledAirspaceFloors: Set<String>
+    let airspaceDisplayOptions: AirspaceDisplayOptions
 
     @State private var preRenderedMapImage: Image?
     @State private var cachedMapSize: CGSize = .zero
@@ -137,7 +140,8 @@ private struct RadarMapLayer: View {
                     showsControlledAirspaceBase: showsControlledAirspaceBase,
                     showsTerrainMap: showsTerrainMap,
                     showsDebugOverlays: showsDebugOverlays,
-                    visibleControlledAirspaceFloors: visibleControlledAirspaceFloors
+                    visibleControlledAirspaceFloors: visibleControlledAirspaceFloors,
+                    airspaceDisplayOptions: airspaceDisplayOptions
                 )
             }
         }
@@ -169,7 +173,8 @@ private struct RadarMapLayer: View {
             showsControlledAirspaceBase: showsControlledAirspaceBase,
             showsTerrainMap: showsTerrainMap,
             showsDebugOverlays: showsDebugOverlays,
-            visibleControlledAirspaceFloors: visibleControlledAirspaceFloors
+            visibleControlledAirspaceFloors: visibleControlledAirspaceFloors,
+            airspaceDisplayOptions: airspaceDisplayOptions
         ))
         renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
         if let rendered = renderer.uiImage {
@@ -358,6 +363,7 @@ private struct MapOverlayRenderer: View {
     let showsTerrainMap: Bool
     let showsDebugOverlays: Bool
     let visibleControlledAirspaceFloors: Set<String>
+    let airspaceDisplayOptions: AirspaceDisplayOptions
 
     var body: some View {
         Canvas { context, canvasSize in
@@ -411,7 +417,7 @@ private struct MapOverlayRenderer: View {
                 }
             }
 
-            if showsControlledAirspaceBase && geometry.legalAirspaceLayers.isEmpty {
+            if showsControlledAirspaceBase && geometry.airspaceSectors.isEmpty {
                 var ctr = Path()
                 if let firstPoint = geometry.controlledAirspacePolygonFractions.first {
                     ctr.move(to: zoomedPoint(inViewFromFraction: firstPoint, transform: projectionTransform))
@@ -427,7 +433,7 @@ private struct MapOverlayRenderer: View {
                 visibleControlledAirspaceFloors.contains($0.floorLabel)
             }
 
-            for shelf in visibleShelves where geometry.legalAirspaceLayers.isEmpty {
+            for shelf in visibleShelves where geometry.airspaceSectors.isEmpty {
                 var shelfPath = Path()
                 if let firstPoint = shelf.polygonFractions.first {
                     shelfPath.move(to: zoomedPoint(inViewFromFraction: firstPoint, transform: projectionTransform))
@@ -446,7 +452,7 @@ private struct MapOverlayRenderer: View {
 
             }
 
-            if showsControlledAirspaceBase, !geometry.legalAirspaceLayers.isEmpty {
+            if showsControlledAirspaceBase, !geometry.airspaceSectors.isEmpty {
                 drawLegalAirspace(context: &context, canvasSize: canvasSize)
             }
 
@@ -595,44 +601,36 @@ private struct MapOverlayRenderer: View {
     }
 
     private func drawLegalAirspace(context: inout GraphicsContext, canvasSize: CGSize) {
-        let boundaries = geometry.legalAirspaceLayers.map(\.boundary)
-        let samples = boundaries.map(AirspaceBoundaryRenderer.sampleBoundary)
-        let bounds = AirspaceBoundaryRenderer.bounds(for: boundaries)
-        let originLat = samples.flatMap { $0 }.map(\.lat).reduce(0, +) / Double(max(samples.flatMap { $0 }.count, 1))
+        let model = AirspaceRenderer.makeRenderModel(
+            sectors: geometry.airspaceSectors,
+            options: airspaceDisplayOptions,
+            canvasSize: canvasSize
+        )
 
-        for (index, layer) in geometry.legalAirspaceLayers.enumerated() {
-            let polyline = samples[index].map {
-                AirspaceBoundaryRenderer.project($0, bounds: bounds, size: canvasSize, originLat: originLat)
-            }.map(zoomedPointFromCanvasPoint)
-            let path = AirspaceBoundaryRenderer.makePath(from: polyline)
-
-            switch layer.kind {
-            case .cta:
-                context.stroke(
-                    path,
-                    with: .color(Color.blue.opacity(0.95)),
-                    style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round, dash: [7, 5])
-                )
-            case .ctr:
-                if isClosed(layer.boundary) {
-                    var fillPath = path
-                    fillPath.closeSubpath()
-                    context.fill(fillPath, with: .color(Color.blue.opacity(0.10)))
-                }
-                context.stroke(
-                    path,
-                    with: .color(Color.blue.opacity(0.95)),
-                    style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round)
-                )
-            }
+        for drawable in model.drawables where drawable.sector.isFilled {
+            context.fill(drawable.path, with: .color(Color.blue.opacity(0.10)))
         }
-    }
 
-    private func isClosed(_ boundary: AirspaceBoundary) -> Bool {
-        guard let last = AirspaceBoundaryRenderer.sampleBoundary(boundary).last else { return false }
-        let dLat = abs(last.lat - boundary.start.lat)
-        let dLon = abs(last.lon - boundary.start.lon)
-        return dLat < 0.00001 && dLon < 0.00001
+        for drawable in model.drawables {
+            context.stroke(
+                drawable.path,
+                with: .color(Color.blue.opacity(0.95)),
+                style: StrokeStyle(
+                    lineWidth: drawable.sector.isFilled ? 1.6 : 1.3,
+                    lineCap: .round,
+                    lineJoin: .round,
+                    miterLimit: 1.0,
+                    dash: drawable.sector.isDashed ? [7, 5] : []
+                )
+            )
+        }
+
+        for label in model.labels {
+            let text = Text(label.lines.joined(separator: "\n"))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundColor(.cyan.opacity(0.96))
+            context.draw(text, at: zoomedPointFromCanvasPoint(label.anchor), anchor: .center)
+        }
     }
 
     private func zoomedPointFromCanvasPoint(_ point: CGPoint) -> CGPoint {
