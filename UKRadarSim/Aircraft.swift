@@ -108,6 +108,7 @@ struct RadarGeometry {
     let controlledAirspaceShelves: [AirspaceShelf]
     let surroundingAirways: [AirwaySegment]
     let terrainSectors: [TerrainSector]
+    let legalAirspaceLayers: [LegalAirspaceLayer]
     let wrapInset: CGFloat
 
     static let `default` = RadarGeometry(
@@ -126,6 +127,7 @@ struct RadarGeometry {
         controlledAirspaceShelves: [],
         surroundingAirways: [],
         terrainSectors: [],
+        legalAirspaceLayers: [],
         wrapInset: 100
     )
 
@@ -242,16 +244,18 @@ enum AirportMapCatalog {
         }
 
         let overlays = UKControlledAirspaceData.overlays(for: airportICAO)
+        let usesLegalAirspace = !baseGeometry.legalAirspaceLayers.isEmpty
 
         return RadarGeometry(
             worldSize: baseGeometry.worldSize,
             approachCourseHeading: baseGeometry.approachCourseHeading,
             centerlineStartFraction: baseGeometry.centerlineStartFraction,
             runwayThresholdFraction: baseGeometry.runwayThresholdFraction,
-            controlledAirspacePolygonFractions: overlays.boundary ?? baseGeometry.controlledAirspacePolygonFractions,
-            controlledAirspaceShelves: overlays.shelves.isEmpty ? baseGeometry.controlledAirspaceShelves : overlays.shelves,
+            controlledAirspacePolygonFractions: usesLegalAirspace ? baseGeometry.controlledAirspacePolygonFractions : (overlays.boundary ?? baseGeometry.controlledAirspacePolygonFractions),
+            controlledAirspaceShelves: usesLegalAirspace ? baseGeometry.controlledAirspaceShelves : (overlays.shelves.isEmpty ? baseGeometry.controlledAirspaceShelves : overlays.shelves),
             surroundingAirways: baseGeometry.surroundingAirways,
             terrainSectors: baseGeometry.terrainSectors,
+            legalAirspaceLayers: baseGeometry.legalAirspaceLayers,
             wrapInset: baseGeometry.wrapInset
         )
     }
@@ -300,6 +304,7 @@ enum AirportMapCatalog {
         ],
         surroundingAirways: [],
         terrainSectors: [],
+        legalAirspaceLayers: GatwickAIPAirspace.mapLayers,
         wrapInset: 100
     )
 
@@ -389,6 +394,7 @@ enum AirportMapCatalog {
                 minimumAltitudeLabel: "MSA 2500"
             )
         ],
+        legalAirspaceLayers: [],
         wrapInset: 100
     )
 
@@ -470,6 +476,7 @@ enum AirportMapCatalog {
                 minimumAltitudeLabel: "MSA 3600"
             )
         ],
+        legalAirspaceLayers: [],
         wrapInset: 100
     )
 
@@ -551,6 +558,7 @@ enum AirportMapCatalog {
                 minimumAltitudeLabel: "MSA 2900"
             )
         ],
+        legalAirspaceLayers: [],
         wrapInset: 100
     )
 }

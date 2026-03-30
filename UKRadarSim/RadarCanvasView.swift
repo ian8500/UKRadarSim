@@ -364,6 +364,10 @@ private struct MapOverlayRenderer: View {
             let w = canvasSize.width
             let h = canvasSize.height
             let center = CGPoint(x: w / 2, y: h / 2)
+            context.withCGContext { cgContext in
+                cgContext.setAllowsAntialiasing(true)
+                cgContext.setShouldAntialias(true)
+            }
 
             let ringRadii: [CGFloat] = [120, 220, 320]
             for radius in ringRadii {
@@ -407,7 +411,7 @@ private struct MapOverlayRenderer: View {
                 }
             }
 
-            if showsControlledAirspaceBase {
+            if showsControlledAirspaceBase && geometry.legalAirspaceLayers.isEmpty {
                 var ctr = Path()
                 if let firstPoint = geometry.controlledAirspacePolygonFractions.first {
                     ctr.move(to: zoomedPoint(inViewFromFraction: firstPoint, transform: projectionTransform))
@@ -423,7 +427,7 @@ private struct MapOverlayRenderer: View {
                 visibleControlledAirspaceFloors.contains($0.floorLabel)
             }
 
-            for shelf in visibleShelves {
+            for shelf in visibleShelves where geometry.legalAirspaceLayers.isEmpty {
                 var shelfPath = Path()
                 if let firstPoint = shelf.polygonFractions.first {
                     shelfPath.move(to: zoomedPoint(inViewFromFraction: firstPoint, transform: projectionTransform))
@@ -440,6 +444,10 @@ private struct MapOverlayRenderer: View {
                     style: StrokeStyle(lineWidth: 0.9, dash: [4, 4])
                 )
 
+            }
+
+            if showsControlledAirspaceBase, !geometry.legalAirspaceLayers.isEmpty {
+                drawLegalAirspace(context: &context, canvasSize: canvasSize)
             }
 
             for airway in geometry.surroundingAirways {
@@ -584,6 +592,55 @@ private struct MapOverlayRenderer: View {
             (partial.x + point.x, partial.y + point.y)
         }
         return CGPoint(x: sums.x / CGFloat(polygon.count), y: sums.y / CGFloat(polygon.count))
+    }
+
+    private func drawLegalAirspace(context: inout GraphicsContext, canvasSize: CGSize) {
+        let boundaries = geometry.legalAirspaceLayers.map(\.boundary)
+        let samples = boundaries.map(AirspaceBoundaryRenderer.sampleBoundary)
+        let bounds = AirspaceBoundaryRenderer.bounds(for: boundaries)
+        let originLat = samples.flatMap { $0 }.map(\.lat).reduce(0, +) / Double(max(samples.flatMap { $0 }.count, 1))
+
+        for (index, layer) in geometry.legalAirspaceLayers.enumerated() {
+            let polyline = samples[index].map {
+                AirspaceBoundaryRenderer.project($0, bounds: bounds, size: canvasSize, originLat: originLat)
+            }.map(zoomedPointFromCanvasPoint)
+            let path = AirspaceBoundaryRenderer.makePath(from: polyline)
+
+            switch layer.kind {
+            case .cta:
+                context.stroke(
+                    path,
+                    with: .color(Color.blue.opacity(0.95)),
+                    style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round, dash: [7, 5])
+                )
+            case .ctr:
+                if isClosed(layer.boundary) {
+                    var fillPath = path
+                    fillPath.closeSubpath()
+                    context.fill(fillPath, with: .color(Color.blue.opacity(0.10)))
+                }
+                context.stroke(
+                    path,
+                    with: .color(Color.blue.opacity(0.95)),
+                    style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round)
+                )
+            }
+        }
+    }
+
+    private func isClosed(_ boundary: AirspaceBoundary) -> Bool {
+        guard let last = AirspaceBoundaryRenderer.sampleBoundary(boundary).last else { return false }
+        let dLat = abs(last.lat - boundary.start.lat)
+        let dLon = abs(last.lon - boundary.start.lon)
+        return dLat < 0.00001 && dLon < 0.00001
+    }
+
+    private func zoomedPointFromCanvasPoint(_ point: CGPoint) -> CGPoint {
+        let viewCenter = CGPoint(x: size.width / 2, y: size.height / 2)
+        return CGPoint(
+            x: viewCenter.x + ((point.x - viewCenter.x) * zoomScale),
+            y: viewCenter.y + ((point.y - viewCenter.y) * zoomScale)
+        )
     }
 
     private var coreProjectionWorldPoints: [CGPoint] {
