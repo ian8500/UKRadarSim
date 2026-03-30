@@ -62,8 +62,7 @@ final class AppState: ObservableObject {
     @Published var selectedDifficulty: DifficultyLevel = .standard
     @Published var selectedAirportICAO: String = "EGKK"
     @Published var selectedWeatherPackID: String = "standard-uk"
-
-    @Published var featureAccess = FeatureAccess()
+    @Published private(set) var hasPremiumEntitlements = false
 
     // Seed content; premium flags are optional by design.
     @Published var airports: [AirportConfig] = [
@@ -78,6 +77,17 @@ final class AppState: ObservableObject {
         WeatherPack(id: "winter-fronts", name: "Winter Fronts", isPremium: true)
     ]
 
+    private let entitlementService: EntitlementService
+
+    init(entitlementService: EntitlementService = LocalPreviewEntitlementService()) {
+        self.entitlementService = entitlementService
+        refreshEntitlements()
+    }
+
+    var canPreviewPremiumEntitlements: Bool {
+        entitlementService.supportsPreviewToggle
+    }
+
     var selectedAirport: AirportConfig? {
         airports.first { $0.icao == selectedAirportICAO }
     }
@@ -86,16 +96,22 @@ final class AppState: ObservableObject {
         weatherPacks.first { $0.id == selectedWeatherPackID }
     }
 
+    func setPreviewPremiumEntitlementsEnabled(_ isEnabled: Bool) {
+        entitlementService.setPreviewPremiumEnabled(isEnabled)
+        refreshEntitlements()
+    }
+
     func canAccess(airport: AirportConfig) -> Bool {
-        // Future StoreKit hook:
-        // Replace tier check with a full entitlement resolver
-        // (e.g. product-level unlocks, grace period, family sharing).
         guard airport.isPremium == true else { return true }
-        return featureAccess.hasPremiumEntitlements
+        return hasPremiumEntitlements
     }
 
     func canAccess(weatherPack: WeatherPack) -> Bool {
         guard weatherPack.isPremium == true else { return true }
-        return featureAccess.hasPremiumEntitlements
+        return hasPremiumEntitlements
+    }
+
+    private func refreshEntitlements() {
+        hasPremiumEntitlements = entitlementService.hasPremiumEntitlements
     }
 }
