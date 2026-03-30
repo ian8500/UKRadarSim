@@ -17,9 +17,14 @@ struct AircraftMotionConfig {
 
 struct AircraftMotionService {
     let config: AircraftMotionConfig
+    private let performanceProvider: AircraftPerformanceProviding
 
-    init(config: AircraftMotionConfig = .default) {
+    init(
+        config: AircraftMotionConfig = .default,
+        performanceProvider: AircraftPerformanceProviding = AircraftPerformanceCatalog()
+    ) {
         self.config = config
+        self.performanceProvider = performanceProvider
     }
 
     func applyControllerTargets(
@@ -32,28 +37,36 @@ struct AircraftMotionService {
             return
         }
 
+        let performance = performanceProvider.profile(for: aircraft.aircraftType)
         aircraft.selectedLevel = strip.selectedLevel
 
         let headingTarget = Double(strip.selectedHeading)
+        let turnRate = min(config.headingTurnRateDegreesPerSecond, performance.maxTurnRateDegreesPerSecond)
         aircraft.heading = moveAngle(
             aircraft.heading,
             toward: headingTarget,
-            maxDelta: Double(dt) * config.headingTurnRateDegreesPerSecond
+            maxDelta: Double(dt) * turnRate
         )
 
         let speedTarget = strip.selectedSpeed
         if aircraft.groundSpeed < speedTarget {
-            let increase = max(1, Int((Double(dt) * config.accelerationRateKnotsPerSecond).rounded()))
+            let accelerationRate = min(config.accelerationRateKnotsPerSecond, performance.accelerationRateKnotsPerSecond)
+            let increase = max(1, Int((Double(dt) * accelerationRate).rounded()))
             aircraft.groundSpeed = min(speedTarget, aircraft.groundSpeed + increase)
         } else if aircraft.groundSpeed > speedTarget {
-            let decrease = max(1, Int((Double(dt) * config.decelerationRateKnotsPerSecond).rounded()))
+            let decelerationRate = min(config.decelerationRateKnotsPerSecond, performance.decelerationRateKnotsPerSecond)
+            let decrease = max(1, Int((Double(dt) * decelerationRate).rounded()))
             aircraft.groundSpeed = max(speedTarget, aircraft.groundSpeed - decrease)
         }
 
         let levelTarget = strip.selectedLevel
         if aircraft.currentLevel != levelTarget {
             let direction = levelTarget > aircraft.currentLevel ? 1 : -1
-            verticalProgress += config.climbDescentRateFLPerSecond * Double(dt)
+            let profileVerticalRate = direction > 0
+                ? performance.climbRateFLPerSecond
+                : performance.descentRateFLPerSecond
+            let verticalRate = min(config.climbDescentRateFLPerSecond, profileVerticalRate)
+            verticalProgress += verticalRate * Double(dt)
 
             while verticalProgress >= 1.0, aircraft.currentLevel != levelTarget {
                 aircraft.currentLevel += direction
