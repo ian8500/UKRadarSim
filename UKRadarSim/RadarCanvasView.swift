@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct RadarCanvasView: View {
     let aircraft: [Aircraft]
@@ -6,6 +7,8 @@ struct RadarCanvasView: View {
     let predictedVectorEndpoint: (Aircraft, Double) -> CGPoint
     let showsControlledAirspaceBase: Bool
     let showsTerrainMap: Bool
+    let mapValidationMode: Bool
+    let showsMapDebugLabels: Bool
     let geometry: RadarGeometry
 
     @State private var zoomScale: CGFloat = 1.0
@@ -617,6 +620,56 @@ private struct MapOverlayRenderer: View {
             }
         }
         .frame(width: size.width, height: size.height)
+    }
+
+    private func drawValidationMarkers(context: inout GraphicsContext, projection: RadarMapValidationProjection) {
+        drawCross(context: &context, at: projection.runwayThreshold, color: .green, radius: 6)
+        drawCross(context: &context, at: projection.projectedOppositeRunwayThreshold, color: .green, radius: 5)
+        drawCross(context: &context, at: projection.airportReferencePoint, color: .yellow, radius: 6)
+
+        context.draw(Text("THR").font(.system(size: 10, design: .monospaced)), at: CGPoint(x: projection.runwayThreshold.x + 12, y: projection.runwayThreshold.y))
+        context.draw(Text("THR(OPP)").font(.system(size: 10, design: .monospaced)), at: CGPoint(x: projection.projectedOppositeRunwayThreshold.x + 24, y: projection.projectedOppositeRunwayThreshold.y))
+        context.draw(Text("ARP").font(.system(size: 10, design: .monospaced)), at: CGPoint(x: projection.airportReferencePoint.x + 12, y: projection.airportReferencePoint.y))
+
+        for fix in projection.selectedFixes {
+            drawCross(context: &context, at: fix.viewPoint, color: .cyan, radius: 4)
+            context.draw(
+                Text(fix.name).font(.system(size: 10, design: .monospaced)).foregroundColor(.cyan.opacity(0.95)),
+                at: CGPoint(x: fix.viewPoint.x + 10, y: fix.viewPoint.y)
+            )
+        }
+
+        guard showsMapDebugLabels else { return }
+        for (index, vertex) in projection.controlledAirspaceVertices.enumerated() {
+            drawCross(context: &context, at: vertex, color: .red, radius: 3)
+            context.draw(
+                Text("V\(index)").font(.system(size: 9, design: .monospaced)).foregroundColor(.red.opacity(0.95)),
+                at: CGPoint(x: vertex.x + 9, y: vertex.y)
+            )
+        }
+
+        for point in projection.namedReferencePoints {
+            context.draw(
+                Text(point.name).font(.system(size: 9, design: .monospaced)).foregroundColor(.yellow.opacity(0.95)),
+                at: CGPoint(x: point.viewPoint.x + 8, y: point.viewPoint.y - 10)
+            )
+        }
+    }
+
+    private func drawCross(context: inout GraphicsContext, at point: CGPoint, color: Color, radius: CGFloat) {
+        var horizontal = Path()
+        horizontal.move(to: CGPoint(x: point.x - radius, y: point.y))
+        horizontal.addLine(to: CGPoint(x: point.x + radius, y: point.y))
+        context.stroke(horizontal, with: .color(color.opacity(0.95)), lineWidth: 1.2)
+
+        var vertical = Path()
+        vertical.move(to: CGPoint(x: point.x, y: point.y - radius))
+        vertical.addLine(to: CGPoint(x: point.x, y: point.y + radius))
+        context.stroke(vertical, with: .color(color.opacity(0.95)), lineWidth: 1.2)
+    }
+
+    private func format(_ value: CGFloat) -> String {
+        String(format: "%.2f", value)
     }
 
     private func pointAlongLine(from start: CGPoint, to end: CGPoint, fraction: CGFloat) -> CGPoint {
