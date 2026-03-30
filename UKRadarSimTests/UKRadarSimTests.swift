@@ -66,6 +66,33 @@ struct UKRadarSimTests {
         }
     }
 
+    @Test func levelReadbackUsesClimbWording() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedLevel: 120, currentLevel: 100, lastIssuedLevel: 100)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.level])
+
+        #expect(instruction == ["climb flight level one two zero"])
+    }
+
+    @Test func levelReadbackUsesDescendWording() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedLevel: 80, currentLevel: 100, lastIssuedLevel: 100)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.level])
+
+        #expect(instruction == ["descend flight level eight zero"])
+    }
+
+    @Test func levelReadbackUsesMaintainWording() {
+        let service = VoiceReadbackService.shared
+        let strip = makeStrip(selectedLevel: 100, currentLevel: 100, lastIssuedLevel: 120)
+
+        let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.level])
+
+        #expect(instruction == ["maintain flight level one zero zero"])
+    }
+
     @Test func headingReadbackIncludesDegreesForHeadingsEndingInZero() {
         let service = VoiceReadbackService.shared
         let strip = makeStrip(selectedHeading: 30)
@@ -86,7 +113,7 @@ struct UKRadarSimTests {
 
     @Test func speedReadbackUsesIncreaseWhenSpeedGoesUp() {
         let service = VoiceReadbackService.shared
-        let strip = makeStrip(selectedHeading: 90, selectedSpeed: 250, lastIssuedSpeed: 220)
+        let strip = makeStrip(selectedSpeed: 250, lastIssuedSpeed: 220)
 
         let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.speed])
 
@@ -95,7 +122,7 @@ struct UKRadarSimTests {
 
     @Test func speedReadbackUsesReduceWhenSpeedGoesDown() {
         let service = VoiceReadbackService.shared
-        let strip = makeStrip(selectedHeading: 90, selectedSpeed: 180, lastIssuedSpeed: 220)
+        let strip = makeStrip(selectedSpeed: 180, lastIssuedSpeed: 220)
 
         let instruction = service.buildIssuedInstruction(for: strip, changedFields: [.speed])
 
@@ -223,7 +250,7 @@ struct UKRadarSimTests {
     ) -> EFPSStrip {
         EFPSStrip(
             aircraftID: UUID(),
-            callsign: "EZY123",
+            callsign: callsign,
             aircraftType: "A320",
             destination: "EGKK",
             isInbound: true,
