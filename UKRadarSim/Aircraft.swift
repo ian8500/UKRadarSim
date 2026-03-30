@@ -298,49 +298,8 @@ enum AirportMapCatalog {
                 ceilingLabel: "FL195"
             )
         ],
-        surroundingAirways: [
-            AirwaySegment(
-                identifier: "L9",
-                waypoints: [
-                    CGPoint(x: 0.00, y: 0.36), CGPoint(x: 0.20, y: 0.40),
-                    CGPoint(x: 0.44, y: 0.46), CGPoint(x: 0.68, y: 0.52), CGPoint(x: 1.00, y: 0.58)
-                ]
-            ),
-            AirwaySegment(
-                identifier: "M23",
-                waypoints: [
-                    CGPoint(x: 0.14, y: 0.86), CGPoint(x: 0.30, y: 0.70),
-                    CGPoint(x: 0.46, y: 0.58), CGPoint(x: 0.63, y: 0.44), CGPoint(x: 0.78, y: 0.28)
-                ]
-            ),
-            AirwaySegment(
-                identifier: "UL607",
-                waypoints: [
-                    CGPoint(x: 0.24, y: 0.06), CGPoint(x: 0.40, y: 0.22),
-                    CGPoint(x: 0.56, y: 0.40), CGPoint(x: 0.72, y: 0.64), CGPoint(x: 0.88, y: 0.92)
-                ]
-            )
-        ],
-        terrainSectors: [
-            TerrainSector(
-                polygonFractions: [
-                    CGPoint(x: 0.00, y: 0.00), CGPoint(x: 0.45, y: 0.00), CGPoint(x: 0.42, y: 0.44), CGPoint(x: 0.00, y: 0.40)
-                ],
-                minimumAltitudeLabel: "MSA 2400"
-            ),
-            TerrainSector(
-                polygonFractions: [
-                    CGPoint(x: 0.45, y: 0.00), CGPoint(x: 1.00, y: 0.00), CGPoint(x: 1.00, y: 0.44), CGPoint(x: 0.42, y: 0.44)
-                ],
-                minimumAltitudeLabel: "MSA 3300"
-            ),
-            TerrainSector(
-                polygonFractions: [
-                    CGPoint(x: 0.00, y: 0.40), CGPoint(x: 0.42, y: 0.44), CGPoint(x: 0.40, y: 1.00), CGPoint(x: 0.00, y: 1.00)
-                ],
-                minimumAltitudeLabel: "MSA 2600"
-            )
-        ],
+        surroundingAirways: [],
+        terrainSectors: [],
         wrapInset: 100
     )
 

@@ -7,6 +7,7 @@ struct MainRadarView: View {
     @StateObject private var clock: SimulationClock
     @State private var selectedBayFilter: StripBay?
     @State private var showWakeGuide = false
+    @State private var selectedAirspaceFloors: Set<String> = []
 
     let selectedAirport: AirportConfig
     let difficulty: DifficultyLevel
@@ -48,6 +49,7 @@ struct MainRadarView: View {
                 showsTerrainMap: appState.showsTerrainMap,
                 mapValidationMode: appState.mapValidationMode,
                 showsMapDebugLabels: appState.showsMapDebugLabels,
+                visibleControlledAirspaceFloors: selectedAirspaceFloors,
                 geometry: geometry
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -56,7 +58,12 @@ struct MainRadarView: View {
             opsStatusPanel
             stripArea
         }
-        .onAppear { clock.start() }
+        .onAppear {
+            if selectedAirspaceFloors.isEmpty {
+                selectedAirspaceFloors = Set(geometry.controlledAirspaceShelves.map(\.floorLabel))
+            }
+            clock.start()
+        }
         .onDisappear { clock.pause() }
     }
 
@@ -67,6 +74,7 @@ struct MainRadarView: View {
                 .tint(.white)
 
             layerControls
+            controlledLevelButtons
             vectorsMenu
             wakeButton
             speedMenu
@@ -99,6 +107,35 @@ struct MainRadarView: View {
         }
         .padding()
         .background(Color(red: 0.08, green: 0.10, blue: 0.12))
+    }
+
+    private var controlledLevelButtons: some View {
+        let levels = geometry.controlledAirspaceShelves
+            .map(\.floorLabel)
+            .uniquedAndSortedNumerically
+
+        return HStack(spacing: 8) {
+            ForEach(levels, id: \.self) { level in
+                let isOn = selectedAirspaceFloors.contains(level)
+                Button(action: { toggleAirspaceFloor(level) }) {
+                    Text(level)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background((isOn ? Color.cyan : Color.gray).opacity(0.35))
+                        .cornerRadius(8)
+                }
+            }
+        }
+    }
+
+    private func toggleAirspaceFloor(_ level: String) {
+        if selectedAirspaceFloors.contains(level) {
+            selectedAirspaceFloors.remove(level)
+        } else {
+            selectedAirspaceFloors.insert(level)
+        }
     }
 
     private var wakeButton: some View {
@@ -309,6 +346,15 @@ struct MainRadarView: View {
             return [selectedBayFilter]
         }
         return StripBay.allCases
+    }
+}
+
+private extension Array where Element == String {
+    var uniquedAndSortedNumerically: [String] {
+        let unique = Set(self)
+        return unique.sorted {
+            Int($0) ?? .max < Int($1) ?? .max
+        }
     }
 }
 
