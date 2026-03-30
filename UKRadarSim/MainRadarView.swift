@@ -8,6 +8,13 @@ struct MainRadarView: View {
     @State private var selectedBayFilter: StripBay?
     @State private var showWakeGuide = false
     @State private var selectedAirspaceFloors: Set<String> = []
+    @State private var airspaceDisplayOptions = AirspaceDisplayOptions(
+        showCAS: true,
+        showOnlyGatwick: true,
+        showLabels: true,
+        labelMode: .baseOnly,
+        selectedSectorID: nil
+    )
 
     let selectedAirport: AirportConfig
     let difficulty: DifficultyLevel
@@ -50,6 +57,7 @@ struct MainRadarView: View {
                 mapValidationMode: appState.mapValidationMode,
                 showsMapDebugLabels: appState.showsMapDebugLabels,
                 visibleControlledAirspaceFloors: selectedAirspaceFloors,
+                airspaceDisplayOptions: airspaceDisplayOptions,
                 geometry: geometry
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -74,6 +82,7 @@ struct MainRadarView: View {
                 .tint(.white)
 
             layerControls
+            airspaceOverlayControls
             controlledLevelButtons
             vectorsMenu
             wakeButton
@@ -186,6 +195,73 @@ struct MainRadarView: View {
                 appState.showsMapDebugLabels.toggle()
             }
             .disabled(!appState.mapValidationMode)
+        }
+    }
+
+    private var airspaceOverlayControls: some View {
+        HStack(spacing: 8) {
+            layerToggleButton(title: "CAS", isOn: airspaceDisplayOptions.showCAS) {
+                airspaceDisplayOptions.showCAS.toggle()
+            }
+
+            layerToggleButton(title: "CAS Labels", isOn: airspaceDisplayOptions.showLabels) {
+                airspaceDisplayOptions.showLabels.toggle()
+            }
+
+            Button {
+                airspaceDisplayOptions.showOnlyGatwick.toggle()
+            } label: {
+                Text(airspaceDisplayOptions.showOnlyGatwick ? "Gatwick Only" : "All CAS")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.25))
+                    .cornerRadius(8)
+            }
+
+            Menu {
+                ForEach(CASLabelMode.allCases) { mode in
+                    Button {
+                        airspaceDisplayOptions.labelMode = mode
+                    } label: {
+                        if airspaceDisplayOptions.labelMode == mode {
+                            Label(mode.title, systemImage: "checkmark")
+                        } else {
+                            Text(mode.title)
+                        }
+                    }
+                }
+            } label: {
+                Text("CAS Label: \(airspaceDisplayOptions.labelMode.title)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.25))
+                    .cornerRadius(8)
+            }
+
+            if !geometry.airspaceSectors.isEmpty {
+                Menu {
+                    Button("None") {
+                        airspaceDisplayOptions.selectedSectorID = nil
+                    }
+                    ForEach(geometry.airspaceSectors, id: \.id) { sector in
+                        Button(sector.name) {
+                            airspaceDisplayOptions.selectedSectorID = sector.id
+                        }
+                    }
+                } label: {
+                    Text("Sector")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.25))
+                        .cornerRadius(8)
+                }
+            }
         }
     }
 
