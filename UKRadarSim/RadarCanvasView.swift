@@ -525,7 +525,7 @@ private struct MapOverlayRenderer: View {
             )
         }
 
-        guard showsMapDebugLabels else { return }
+        guard showsDebugOverlays else { return }
         for (index, vertex) in projection.controlledAirspaceVertices.enumerated() {
             drawCross(context: &context, at: vertex, color: .red, radius: 3)
             context.draw(
