@@ -35,6 +35,7 @@ struct ScenarioAircraftDefinition {
 struct SimulationScenario {
     let id: String
     let aircraft: [ScenarioAircraftDefinition]
+    let radarUpdateIntervalSeconds: CGFloat
 }
 
 enum ScenarioLibrary {
@@ -65,7 +66,8 @@ enum ScenarioLibrary {
                 destination: "EGLL",
                 isInbound: false
             )
-        ]
+        ],
+        radarUpdateIntervalSeconds: 6.0
     )
 }
 

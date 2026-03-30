@@ -31,7 +31,7 @@ class SimulationEngine: ObservableObject {
     @Published private(set) var landedCount = 0
 
     private let truthUpdateInterval: CGFloat = 0.1
-    private let radarUpdateInterval: CGFloat = 6.0
+    private let radarUpdateInterval: CGFloat
     private var elapsedSinceRadarUpdate: CGFloat = 0
     private var verticalProgressByAircraft: [UUID: Double] = [:]
 
@@ -55,6 +55,7 @@ class SimulationEngine: ObservableObject {
     ) {
         self.geometry = geometry
         self.startupScenario = startupScenario
+        self.radarUpdateInterval = max(0.5, startupScenario.radarUpdateIntervalSeconds)
         self.motionService = motionService
         self.conflictService = conflictService
         self.approachService = approachService
