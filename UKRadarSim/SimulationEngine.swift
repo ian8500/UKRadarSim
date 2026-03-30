@@ -9,30 +9,7 @@ enum InstructionChange: Hashable {
     case ilsClearance
 }
 
-private struct TrackPredictor {
-    func predictedPosition(for track: Aircraft, lookaheadSeconds: Double) -> CGPoint {
-        MotionProjection.project(
-            from: CGPoint(x: track.trueX, y: track.trueY),
-            headingDegrees: track.heading,
-            groundSpeed: track.groundSpeed,
-            elapsedSeconds: lookaheadSeconds
-        )
-    }
-
-    func predictedState(for track: Aircraft, lookaheadSeconds: Double) -> PredictedAircraftState {
-        PredictedAircraftState(
-            aircraftID: track.id,
-            lookaheadSeconds: lookaheadSeconds,
-            projectedPosition: predictedPosition(for: track, lookaheadSeconds: lookaheadSeconds),
-            projectedLevel: track.selectedLevel
-        )
-    }
-
-    func predictedStates(for tracks: [Aircraft], lookaheadSeconds: Double) -> [PredictedAircraftState] {
-        tracks.map { predictedState(for: $0, lookaheadSeconds: lookaheadSeconds) }
-    }
-}
-
+@MainActor
 class SimulationEngine: ObservableObject {
     struct SafetyAlert: Identifiable {
         enum Severity {
@@ -59,7 +36,7 @@ class SimulationEngine: ObservableObject {
     private var verticalProgressByAircraft: [UUID: Double] = [:]
 
     private let geometry: RadarGeometry
-    private let predictor = TrackPredictor()
+    private let predictor = IntentAwareTrackPredictor()
     private let startupScenario: SimulationScenario
     private let motionService: AircraftMotionService
     private let conflictService: ConflictDetectionService
@@ -318,8 +295,18 @@ class SimulationEngine: ObservableObject {
     }
 
     private func recalculateOpsState() {
+        let intentLookup = intentByAircraftID()
         let conflicts = conflictService.detectConflicts(aircraft: aircraft) { [predictor] track, lookaheadSeconds in
-            predictor.predictedPosition(for: track, lookaheadSeconds: lookaheadSeconds)
+            predictor.predictedState(
+                for: track,
+                intent: intentLookup[track.id] ?? TrackIntent(
+                    selectedHeading: track.heading,
+                    selectedSpeed: track.groundSpeed,
+                    selectedLevel: track.currentLevel
+                ),
+                lookaheadSeconds: lookaheadSeconds,
+                startPosition: CGPoint(x: track.trueX, y: track.trueY)
+            ).projectedPosition
         }
 
         score = scoringService.computeScore(landedCount: landedCount, conflicts: conflicts)
