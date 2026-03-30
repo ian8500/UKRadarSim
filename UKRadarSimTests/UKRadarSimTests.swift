@@ -27,6 +27,26 @@ struct UKRadarSimTests {
         #expect(!afterRadarTick.historyDots.isEmpty)
     }
 
+    @Test func scenarioCanOverrideRadarSweepInterval() {
+        let scenario = SimulationScenario(
+            id: "fast-radar",
+            aircraft: startupScenario.aircraft,
+            radarUpdateIntervalSeconds: 2.0
+        )
+        let engine = SimulationEngine(startupScenario: scenario)
+        #expect(!engine.aircraft.isEmpty)
+
+        let baselineDisplay = CGPoint(x: engine.aircraft[0].displayX, y: engine.aircraft[0].displayY)
+
+        engine.step(dt: 1.0)
+        #expect(engine.aircraft[0].displayX == baselineDisplay.x)
+        #expect(engine.aircraft[0].displayY == baselineDisplay.y)
+
+        engine.step(dt: 1.1)
+        #expect(engine.aircraft[0].displayX == engine.aircraft[0].trueX)
+        #expect(engine.aircraft[0].displayY == engine.aircraft[0].trueY)
+    }
+
     @Test func headingTargetConvergesGradually() {
         let engine = SimulationEngine(startupScenario: ScenarioLibrary.default)
         #expect(!engine.aircraft.isEmpty)
