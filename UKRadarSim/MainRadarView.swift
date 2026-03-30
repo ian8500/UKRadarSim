@@ -40,6 +40,8 @@ struct MainRadarView: View {
                 vectorSetting: appState.vectorSetting,
                 showsControlledAirspaceBase: appState.showsControlledAirspaceBase,
                 showsTerrainMap: appState.showsTerrainMap,
+                mapValidationMode: appState.mapValidationMode,
+                showsMapDebugLabels: appState.showsMapDebugLabels,
                 geometry: geometry
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -126,6 +128,21 @@ struct MainRadarView: View {
             ) {
                 appState.showsTerrainMap.toggle()
             }
+
+            layerToggleButton(
+                title: "Map Val",
+                isOn: appState.mapValidationMode
+            ) {
+                appState.mapValidationMode.toggle()
+            }
+
+            layerToggleButton(
+                title: "Debug Labels",
+                isOn: appState.showsMapDebugLabels
+            ) {
+                appState.showsMapDebugLabels.toggle()
+            }
+            .disabled(!appState.mapValidationMode)
         }
     }
 

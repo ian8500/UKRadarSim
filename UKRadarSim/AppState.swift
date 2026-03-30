@@ -58,6 +58,8 @@ final class AppState: ObservableObject {
     @Published var vectorSetting: VectorSetting = .off
     @Published var showsControlledAirspaceBase = true
     @Published var showsTerrainMap = true
+    @Published var mapValidationMode = false
+    @Published var showsMapDebugLabels = false
     @Published var activeScreen: AppScreen = .home
     @Published var selectedDifficulty: DifficultyLevel = .standard
     @Published var selectedAirportICAO: String = "EGKK"

@@ -100,6 +100,29 @@ struct UKRadarSimTests {
         #expect(instruction == ["reduce speed one eight zero knots"])
     }
 
+    @Test func mapTransformProducesDeterministicOriginScaleAndBounds() {
+        let geometry = AirportMapCatalog.geometry(for: "EGKK")
+        let transform = geometry.mapTransform(in: CGSize(width: 1200, height: 900), zoomScale: 1.25)
+
+        #expect(transform.origin.x == 0)
+        #expect(transform.origin.y == 0)
+        #expect(transform.scale.width == 1.5)
+        #expect(transform.scale.height == 1.40625)
+        #expect(transform.bounds == CGRect(x: 0, y: 0, width: 1200, height: 900))
+    }
+
+    @Test func validationProjectionContainsStableFixAndReferenceGeometry() {
+        let geometry = AirportMapCatalog.geometry(for: "EGKK")
+        let projection = geometry.mapValidationProjection(in: CGSize(width: 1000, height: 800), zoomScale: 1.0)
+
+        #expect(projection.runwayThreshold == CGPoint(x: 760, y: 400))
+        #expect(projection.projectedOppositeRunwayThreshold == CGPoint(x: 1420, y: 368))
+        #expect(projection.airportReferencePoint == CGPoint(x: 680.8, y: 396.16))
+        #expect(projection.selectedFixes.count == 3)
+        #expect(projection.selectedFixes.map(\.name) == ["L9", "M23", "UL607"])
+        #expect(projection.controlledAirspaceVertices.count == geometry.controlledAirspacePolygonFractions.count)
+    }
+
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
