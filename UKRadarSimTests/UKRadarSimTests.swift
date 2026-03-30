@@ -140,6 +140,61 @@ struct UKRadarSimTests {
         #expect(aircraft.heading == 13)
     }
 
+    @Test func aircraftMotionServiceUsesAircraftSpecificTurnRates() {
+        let profile = AircraftPerformanceProfile(
+            maxTurnRateDegreesPerSecond: 1.0,
+            climbRateFLPerSecond: 2.0,
+            descentRateFLPerSecond: 2.0,
+            accelerationRateKnotsPerSecond: 2.0,
+            decelerationRateKnotsPerSecond: 2.0,
+            typicalApproachSpeedKnots: 150
+        )
+        let service = AircraftMotionService(
+            performanceProvider: StubPerformanceProvider(
+                profiles: ["A320": profile],
+                fallback: .genericJet
+            )
+        )
+        var aircraft = makeAircraft(heading: 10, groundSpeed: 220, currentLevel: 80, selectedLevel: 80)
+        let strip = makeStrip(selectedHeading: 100, selectedSpeed: 220, selectedLevel: 80)
+        var verticalProgress = 0.0
+
+        service.applyControllerTargets(to: &aircraft, strip: strip, dt: 1.0, verticalProgress: &verticalProgress)
+
+        #expect(aircraft.heading == 11)
+    }
+
+    @Test func predictorUsesAircraftSpecificAcceleration() {
+        let profile = AircraftPerformanceProfile(
+            maxTurnRateDegreesPerSecond: 3.0,
+            climbRateFLPerSecond: 2.0,
+            descentRateFLPerSecond: 2.0,
+            accelerationRateKnotsPerSecond: 1.0,
+            decelerationRateKnotsPerSecond: 2.0,
+            typicalApproachSpeedKnots: 150
+        )
+        let predictor = IntentAwareTrackPredictor(
+            performanceProvider: StubPerformanceProvider(
+                profiles: ["A320": profile],
+                fallback: .genericJet
+            )
+        )
+        let aircraft = makeAircraft(heading: 0, groundSpeed: 200, currentLevel: 90)
+        let intent = TrackIntent(selectedHeading: 0, selectedSpeed: 210, selectedLevel: 90)
+
+        let prediction = predictor.predictedState(
+            for: aircraft,
+            intent: intent,
+            lookaheadSeconds: 1.0,
+            startPosition: CGPoint(x: aircraft.trueX, y: aircraft.trueY)
+        )
+
+        let distanceTravelled = prediction.projectedPosition.x - aircraft.trueX
+        let expectedDistance = CGFloat(201) * MotionProjection.speedScale
+
+        #expect(abs(distanceTravelled - expectedDistance) < 0.0001)
+    }
+
     @Test func approachAutomationServiceCapturesAndLands() {
         let service = ApproachAutomationService()
         let geometry = RadarGeometry.default
@@ -294,5 +349,14 @@ private final class MockSimulationStepper: SimulationStepping {
 
     func step(dt: CGFloat) {
         receivedDeltas.append(dt)
+    }
+}
+
+private struct StubPerformanceProvider: AircraftPerformanceProviding {
+    let profiles: [String: AircraftPerformanceProfile]
+    let fallback: AircraftPerformanceProfile
+
+    func profile(for aircraftType: String) -> AircraftPerformanceProfile {
+        profiles[aircraftType.uppercased()] ?? fallback
     }
 }

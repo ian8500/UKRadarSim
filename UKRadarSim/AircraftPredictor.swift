@@ -20,19 +20,22 @@ struct IntentAwareTrackPredictor {
     private let decelerationRateKnotsPerSecond: Double
     private let climbDescentRateFLPerSecond: Double
     private let integrationStepSeconds: Double
+    private let performanceProvider: AircraftPerformanceProviding
 
     init(
         headingTurnRateDegreesPerSecond: Double = 3.0,
         accelerationRateKnotsPerSecond: Double = 2.0,
         decelerationRateKnotsPerSecond: Double = 2.0,
         climbDescentRateFLPerSecond: Double = 2.0,
-        integrationStepSeconds: Double = 0.5
+        integrationStepSeconds: Double = 0.5,
+        performanceProvider: AircraftPerformanceProviding = AircraftPerformanceCatalog()
     ) {
         self.headingTurnRateDegreesPerSecond = headingTurnRateDegreesPerSecond
         self.accelerationRateKnotsPerSecond = accelerationRateKnotsPerSecond
         self.decelerationRateKnotsPerSecond = decelerationRateKnotsPerSecond
         self.climbDescentRateFLPerSecond = climbDescentRateFLPerSecond
         self.integrationStepSeconds = integrationStepSeconds
+        self.performanceProvider = performanceProvider
     }
 
     func predictedState(
@@ -46,30 +49,38 @@ struct IntentAwareTrackPredictor {
         var projectedLevel = Double(aircraft.currentLevel)
         var projectedPosition = startPosition
         var elapsed: Double = 0
+        let performance = performanceProvider.profile(for: aircraft.aircraftType)
 
         while elapsed < lookaheadSeconds {
             let dt = min(integrationStepSeconds, lookaheadSeconds - elapsed)
+            let turnRate = min(headingTurnRateDegreesPerSecond, performance.maxTurnRateDegreesPerSecond)
             projectedHeading = moveAngle(
                 projectedHeading,
                 toward: intent.selectedHeading,
-                maxDelta: dt * headingTurnRateDegreesPerSecond
+                maxDelta: dt * turnRate
             )
 
             if projectedSpeed < Double(intent.selectedSpeed) {
+                let accelerationRate = min(accelerationRateKnotsPerSecond, performance.accelerationRateKnotsPerSecond)
                 projectedSpeed = min(
                     Double(intent.selectedSpeed),
-                    projectedSpeed + (dt * accelerationRateKnotsPerSecond)
+                    projectedSpeed + (dt * accelerationRate)
                 )
             } else if projectedSpeed > Double(intent.selectedSpeed) {
+                let decelerationRate = min(decelerationRateKnotsPerSecond, performance.decelerationRateKnotsPerSecond)
                 projectedSpeed = max(
                     Double(intent.selectedSpeed),
-                    projectedSpeed - (dt * decelerationRateKnotsPerSecond)
+                    projectedSpeed - (dt * decelerationRate)
                 )
             }
 
             let levelDirection = intent.selectedLevel > Int(projectedLevel.rounded()) ? 1.0 : -1.0
             if Int(projectedLevel.rounded()) != intent.selectedLevel {
-                let nextLevel = projectedLevel + (levelDirection * dt * climbDescentRateFLPerSecond)
+                let profileVerticalRate = levelDirection > 0
+                    ? performance.climbRateFLPerSecond
+                    : performance.descentRateFLPerSecond
+                let verticalRate = min(climbDescentRateFLPerSecond, profileVerticalRate)
+                let nextLevel = projectedLevel + (levelDirection * dt * verticalRate)
                 if levelDirection > 0 {
                     projectedLevel = min(Double(intent.selectedLevel), nextLevel)
                 } else {
