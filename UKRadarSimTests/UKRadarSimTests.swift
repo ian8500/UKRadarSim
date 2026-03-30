@@ -100,6 +100,69 @@ struct UKRadarSimTests {
         #expect(instruction == ["reduce speed one eight zero knots"])
     }
 
+    @Test func pointProjectionUsesReferenceOrigin() {
+        let origin = GeoPoint(latitude: 51.0, longitude: -0.1)
+        let point = GeoPoint(latitude: 51.01, longitude: -0.1)
+
+        let projected = GeoProjection.project(point, relativeTo: origin)
+
+        #expect(abs(projected.x) < 0.1)
+        #expect(abs(projected.y - 1_111.95) < 5)
+    }
+
+    @Test func arcGenerationProducesExpectedSweepAndRadius() {
+        let center = GeoPoint(latitude: 51.0, longitude: -0.1)
+        let arc = ArcSegment(
+            center: center,
+            radiusMeters: 10 * 1_852,
+            startBearingDegrees: 0,
+            endBearingDegrees: 90,
+            clockwise: false
+        )
+
+        let samples = arc.sample(stepDegrees: 30)
+
+        #expect(samples.count == 4)
+        let first = GeoProjection.project(samples[0], relativeTo: center)
+        let last = GeoProjection.project(samples[samples.count - 1], relativeTo: center)
+        let firstDistance = hypot(first.x, first.y)
+        let lastDistance = hypot(last.x, last.y)
+
+        #expect(abs(firstDistance - (10 * 1_852)) < 20)
+        #expect(abs(lastDistance - (10 * 1_852)) < 20)
+        #expect(abs(last.x - (10 * 1_852)) < 80)
+        #expect(abs(last.y) < 80)
+    }
+
+    @Test func polygonIsClosedWhenRequested() throws {
+        let segments = try AirspaceGeometryParser.parseSegments(from: [
+            "LINE 510000N0000000W 510000N0001000W",
+            "LINE 510000N0001000W 510600N0001000W",
+            "LINE 510600N0001000W 510000N0000000W"
+        ])
+        let origin = GeoPoint(latitude: 51.0, longitude: 0.0)
+
+        let polygon = BoundaryGeometryBuilder.toPlanarPolygon(
+            segments: segments,
+            origin: origin,
+            closePolygon: true
+        )
+
+        #expect(polygon.first == polygon.last)
+    }
+
+    @Test func boundingBoxTracksExtents() {
+        let bounds = BoundaryGeometryBuilder.boundingBox(
+            for: [
+                PlanarPoint(x: 100, y: -200),
+                PlanarPoint(x: -50, y: 75),
+                PlanarPoint(x: 80, y: 300)
+            ]
+        )
+
+        #expect(bounds == PlanarBounds(minX: -50, maxX: 100, minY: -200, maxY: 300))
+    }
+
     private func angularDifference(_ lhs: Double, _ rhs: Double) -> Double {
         abs(((lhs - rhs + 540).truncatingRemainder(dividingBy: 360)) - 180)
     }
