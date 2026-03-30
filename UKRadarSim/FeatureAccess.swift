@@ -15,11 +15,49 @@ struct FeatureAccess {
     var hasPremiumEntitlements: Bool {
         subscriptionTier == .premium
     }
+}
 
-    // Future StoreKit hook:
-    // - Resolve purchased auto-renewing subscriptions / transactions
-    // - Map active products to `subscriptionTier`
-    // - Publish updates into AppState so UI + content gating refreshes live
+/// Service boundary for access checks.
+///
+/// Future services (e.g. StoreKit) should conform to this protocol and can be
+/// injected into `AppState` without changing the UI/access-gating call sites.
+protocol EntitlementService: AnyObject {
+    var hasPremiumEntitlements: Bool { get }
+    var supportsPreviewToggle: Bool { get }
+
+    /// Development convenience used by local previews.
+    /// StoreKit-backed implementations can ignore this and keep the default no-op.
+    func setPreviewPremiumEnabled(_ isEnabled: Bool)
+}
+
+extension EntitlementService {
+    var supportsPreviewToggle: Bool { false }
+
+    func setPreviewPremiumEnabled(_ isEnabled: Bool) {
+        // Default no-op so production services can opt out.
+    }
+}
+
+/// Local, development-oriented implementation that mimics future entitlement
+/// behavior while retaining the existing premium preview toggle.
+final class LocalPreviewEntitlementService: EntitlementService {
+    private var featureAccess: FeatureAccess
+
+    init(initialFeatureAccess: FeatureAccess = FeatureAccess()) {
+        featureAccess = initialFeatureAccess
+    }
+
+    var hasPremiumEntitlements: Bool {
+        featureAccess.hasPremiumEntitlements
+    }
+
+    var supportsPreviewToggle: Bool {
+        true
+    }
+
+    func setPreviewPremiumEnabled(_ isEnabled: Bool) {
+        featureAccess.subscriptionTier = isEnabled ? .premium : .free
+    }
 }
 
 struct AirportConfig: Identifiable, Hashable {

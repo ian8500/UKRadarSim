@@ -59,8 +59,8 @@ private struct HomeView: View {
             DashboardStat(title: "Difficulty", value: appState.selectedDifficulty.title, symbol: "speedometer")
             DashboardStat(
                 title: "Access",
-                value: appState.featureAccess.hasPremiumEntitlements ? "Premium" : "Standard",
-                symbol: appState.featureAccess.hasPremiumEntitlements ? "star.circle.fill" : "star.circle"
+                value: appState.hasPremiumEntitlements ? "Premium" : "Standard",
+                symbol: appState.hasPremiumEntitlements ? "star.circle.fill" : "star.circle"
             )
         }
     }
@@ -187,16 +187,18 @@ private struct HomeView: View {
                 }
             }
 
-            Divider()
+            if appState.canPreviewPremiumEntitlements {
+                Divider()
 
-            Toggle(
-                "Preview Premium Experience",
-                isOn: Binding(
-                    get: { appState.featureAccess.hasPremiumEntitlements },
-                    set: { appState.featureAccess.subscriptionTier = $0 ? .premium : .free }
+                Toggle(
+                    "Preview Premium Experience",
+                    isOn: Binding(
+                        get: { appState.hasPremiumEntitlements },
+                        set: { appState.setPreviewPremiumEntitlementsEnabled($0) }
+                    )
                 )
-            )
-            .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
+            }
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
