@@ -9,6 +9,7 @@ struct RadarCanvasView: View {
     let showsTerrainMap: Bool
     let mapValidationMode: Bool
     let showsMapDebugLabels: Bool
+    let visibleControlledAirspaceFloors: Set<String>
     let geometry: RadarGeometry
 
     @State private var zoomScale: CGFloat = 1.0
@@ -18,8 +19,6 @@ struct RadarCanvasView: View {
     private let maxZoom: CGFloat = 3.0
     private let referenceRangeNM: CGFloat = 20
     private let mapPadding: CGFloat = 36
-    private let showsDebugOverlays: Bool = true
-
     var body: some View {
         GeometryReader { geo in
             let viewport = RadarViewport(
@@ -39,7 +38,8 @@ struct RadarCanvasView: View {
                         mapPadding: mapPadding,
                         showsControlledAirspaceBase: showsControlledAirspaceBase,
                         showsTerrainMap: showsTerrainMap,
-                        showsDebugOverlays: showsDebugOverlays
+                        showsDebugOverlays: showsMapDebugLabels,
+                        visibleControlledAirspaceFloors: visibleControlledAirspaceFloors
                     )
                     RadarVectorLayer(aircraft: aircraft, vectorSetting: vectorSetting, viewport: viewport)
                     RadarTrackLayer(aircraft: aircraft, viewport: viewport)
@@ -114,6 +114,7 @@ private struct RadarMapLayer: View {
     let showsControlledAirspaceBase: Bool
     let showsTerrainMap: Bool
     let showsDebugOverlays: Bool
+    let visibleControlledAirspaceFloors: Set<String>
 
     @State private var preRenderedMapImage: Image?
     @State private var cachedMapSize: CGSize = .zero
@@ -135,7 +136,8 @@ private struct RadarMapLayer: View {
                     mapPadding: mapPadding,
                     showsControlledAirspaceBase: showsControlledAirspaceBase,
                     showsTerrainMap: showsTerrainMap,
-                    showsDebugOverlays: showsDebugOverlays
+                    showsDebugOverlays: showsDebugOverlays,
+                    visibleControlledAirspaceFloors: visibleControlledAirspaceFloors
                 )
             }
         }
@@ -146,6 +148,10 @@ private struct RadarMapLayer: View {
             updatePreRenderedMapIfNeeded()
         }
         .onChange(of: showsControlledAirspaceBase) { _, _ in
+            preRenderedMapImage = nil
+            updatePreRenderedMapIfNeeded()
+        }
+        .onChange(of: visibleControlledAirspaceFloors) { _, _ in
             preRenderedMapImage = nil
             updatePreRenderedMapIfNeeded()
         }
@@ -162,7 +168,8 @@ private struct RadarMapLayer: View {
             mapPadding: mapPadding,
             showsControlledAirspaceBase: showsControlledAirspaceBase,
             showsTerrainMap: showsTerrainMap,
-            showsDebugOverlays: showsDebugOverlays
+            showsDebugOverlays: showsDebugOverlays,
+            visibleControlledAirspaceFloors: visibleControlledAirspaceFloors
         ))
         renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
         if let rendered = renderer.uiImage {
@@ -350,6 +357,7 @@ private struct MapOverlayRenderer: View {
     let showsControlledAirspaceBase: Bool
     let showsTerrainMap: Bool
     let showsDebugOverlays: Bool
+    let visibleControlledAirspaceFloors: Set<String>
 
     var body: some View {
         Canvas { context, canvasSize in
@@ -399,17 +407,23 @@ private struct MapOverlayRenderer: View {
                 }
             }
 
-            var ctr = Path()
-            if let firstPoint = geometry.controlledAirspacePolygonFractions.first {
-                ctr.move(to: zoomedPoint(inViewFromFraction: firstPoint, transform: projectionTransform))
-                for point in geometry.controlledAirspacePolygonFractions.dropFirst() {
-                    ctr.addLine(to: zoomedPoint(inViewFromFraction: point, transform: projectionTransform))
+            if showsControlledAirspaceBase {
+                var ctr = Path()
+                if let firstPoint = geometry.controlledAirspacePolygonFractions.first {
+                    ctr.move(to: zoomedPoint(inViewFromFraction: firstPoint, transform: projectionTransform))
+                    for point in geometry.controlledAirspacePolygonFractions.dropFirst() {
+                        ctr.addLine(to: zoomedPoint(inViewFromFraction: point, transform: projectionTransform))
+                    }
+                    ctr.closeSubpath()
                 }
-                ctr.closeSubpath()
+                context.stroke(ctr, with: .color(.white.opacity(0.35)), style: StrokeStyle(lineWidth: 1.2, dash: [6, 5]))
             }
-            context.stroke(ctr, with: .color(.white.opacity(0.35)), style: StrokeStyle(lineWidth: 1.2, dash: [6, 5]))
 
-            for shelf in geometry.controlledAirspaceShelves {
+            let visibleShelves = geometry.controlledAirspaceShelves.filter {
+                visibleControlledAirspaceFloors.contains($0.floorLabel)
+            }
+
+            for shelf in visibleShelves {
                 var shelfPath = Path()
                 if let firstPoint = shelf.polygonFractions.first {
                     shelfPath.move(to: zoomedPoint(inViewFromFraction: firstPoint, transform: projectionTransform))
@@ -426,15 +440,6 @@ private struct MapOverlayRenderer: View {
                     style: StrokeStyle(lineWidth: 0.9, dash: [4, 4])
                 )
 
-                if showsControlledAirspaceBase, !shelf.polygonFractions.isEmpty {
-                    let centroid = centroid(for: shelf.polygonFractions)
-                    let point = zoomedPoint(inViewFromFraction: centroid, transform: projectionTransform)
-                    let label = "\(shelf.floorLabel)-\(shelf.ceilingLabel)"
-                    let text = Text(label)
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.cyan.opacity(0.95))
-                    context.draw(text, at: point)
-                }
             }
 
             for airway in geometry.surroundingAirways {
