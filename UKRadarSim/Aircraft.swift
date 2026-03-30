@@ -87,6 +87,19 @@ struct EFPSStrip: Identifiable {
 }
 
 struct RadarGeometry {
+    struct FittedTransform {
+        let sourceBounds: CGRect
+        let fittedRect: CGRect
+        let scale: CGFloat
+
+        func pointInView(from worldPoint: CGPoint) -> CGPoint {
+            CGPoint(
+                x: fittedRect.minX + ((worldPoint.x - sourceBounds.minX) * scale),
+                y: fittedRect.minY + ((worldPoint.y - sourceBounds.minY) * scale)
+            )
+        }
+    }
+
     let worldSize: CGSize
     let approachCourseHeading: Double
     let centerlineStartFraction: CGPoint
@@ -138,13 +151,63 @@ struct RadarGeometry {
     }
 
     func point(inViewFromWorld worldPoint: CGPoint, viewSize: CGSize) -> CGPoint {
-        let xScale = viewSize.width / worldSize.width
-        let yScale = viewSize.height / worldSize.height
-        return CGPoint(x: worldPoint.x * xScale, y: worldPoint.y * yScale)
+        fittedTransform(
+            viewSize: viewSize,
+            worldPoints: [
+                CGPoint(x: 0, y: 0),
+                CGPoint(x: worldSize.width, y: worldSize.height)
+            ],
+            padding: 0
+        ).pointInView(from: worldPoint)
     }
 
     func point(inViewFromFraction fraction: CGPoint, viewSize: CGSize) -> CGPoint {
         point(inViewFromWorld: point(inWorldFromFraction: fraction), viewSize: viewSize)
+    }
+
+    func fittedTransform(viewSize: CGSize, worldPoints: [CGPoint], padding: CGFloat) -> FittedTransform {
+        let validPoints = worldPoints.filter { $0.x.isFinite && $0.y.isFinite }
+        let defaultBounds = CGRect(origin: .zero, size: worldSize)
+        let sourceBounds = RadarGeometry.boundingRect(for: validPoints) ?? defaultBounds
+        let normalizedBounds = sourceBounds.standardized
+
+        let horizontalPadding = min(max(padding, 0), viewSize.width * 0.45)
+        let verticalPadding = min(max(padding, 0), viewSize.height * 0.45)
+        let availableWidth = max(1, viewSize.width - (horizontalPadding * 2))
+        let availableHeight = max(1, viewSize.height - (verticalPadding * 2))
+
+        let sourceWidth = max(normalizedBounds.width, 1)
+        let sourceHeight = max(normalizedBounds.height, 1)
+        let scale = min(availableWidth / sourceWidth, availableHeight / sourceHeight)
+        let fittedWidth = sourceWidth * scale
+        let fittedHeight = sourceHeight * scale
+
+        let fittedRect = CGRect(
+            x: horizontalPadding + ((availableWidth - fittedWidth) / 2),
+            y: verticalPadding + ((availableHeight - fittedHeight) / 2),
+            width: fittedWidth,
+            height: fittedHeight
+        )
+
+        return FittedTransform(sourceBounds: normalizedBounds, fittedRect: fittedRect, scale: scale)
+    }
+
+    static func boundingRect(for points: [CGPoint]) -> CGRect? {
+        guard var minX = points.first?.x,
+              var maxX = points.first?.x,
+              var minY = points.first?.y,
+              var maxY = points.first?.y else {
+            return nil
+        }
+
+        for point in points.dropFirst() {
+            minX = min(minX, point.x)
+            maxX = max(maxX, point.x)
+            minY = min(minY, point.y)
+            maxY = max(maxY, point.y)
+        }
+
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 }
 
